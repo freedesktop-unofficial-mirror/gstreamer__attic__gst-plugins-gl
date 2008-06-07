@@ -1,3 +1,17 @@
+2008-06-07  Filippo Argiolas <filippo dot argiolas at gmail dot com>
+	* gst-libs/gst/gl/gstglshader.c:
+	* gst-libs/gst/gl/gstglshader.h:
+	* gst-libs/gst/gl/gstglprogram.h:
+	Merged first work for Google Summer of Code 2008.
+	Iinitial draft for a couple of GObject classes to manage GLSL Program
+	and Shader Objects. It's far from complete but usable yet, still need
+	some data structure to track which shader are attached with which
+	programs, uniform variables support etc
+	* gst-libs/gst/gl/glextensions.c:
+	* gst-libs/gst/gl/glextensions.h:
+	Added support for a couple of gl functions needed to manage shaders
+	* gst-libs/gst/gl/Makefile.am: Build new classes
+
 2008-04-06  Sebastian Dröge  <slomo@circular-chaos.org>
 
         Patch by: Damien Lespiau <damien dot lespiau at gmail dot com>

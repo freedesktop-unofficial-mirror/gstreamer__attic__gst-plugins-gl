@@ -1,0 +1,83 @@
+/* 
+ * GStreamer
+ * Copyright (C) 2008 Filippo Argiolas <filippo.argiolas@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
+ */
+
+#ifndef __GST_GL_SHADER_H__
+#define __GST_GL_SHADER_H__
+
+#include <GL/glx.h>
+#include <GL/gl.h>
+#include <gst/gst.h>
+
+G_BEGIN_DECLS
+
+#define GST_GL_TYPE_SHADER         (gst_gl_shader_get_type())
+#define GST_GL_SHADER(o)           (G_TYPE_CHECK_INSTANCE_CAST((o), GST_GL_TYPE_SHADER, GstGLShader))
+#define GST_GL_SHADER_CLASS(k)     (G_TYPE_CHECK_CLASS((k), GST_GL_TYPE_SHADER, GstGLShaderClass))
+#define GST_GL_IS_SHADER(o)        (G_TYPE_CHECK_INSTANCE_TYPE((o), GST_GL_TYPE_SHADER))
+#define GST_GL_IS_SHADER_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE((k), GST_GL_TYPE_SHADER))
+#define GST_GL_SHADER_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS((o), GST_GL_TYPE_SHADER, GstGLShaderClass))
+
+#define GST_GL_SHADER_ERROR (gst_gl_shader_error_quark ())
+
+typedef enum {
+     GST_GL_SHADER_ERROR_COMPILE,
+     GST_GL_SHADER_ERROR_LINK,
+     GST_GL_SHADER_ERROR_PROGRAM
+} GstGLShaderError;
+
+typedef struct _GstGLShader        GstGLShader;
+typedef struct _GstGLShaderPrivate GstGLShaderPrivate;
+typedef struct _GstGLShaderClass   GstGLShaderClass;
+
+struct _GstGLShader {
+     /*< private >*/
+     GObject parent;
+     GstGLShaderPrivate *priv;
+};
+
+struct _GstGLShaderClass {
+     /*< private >*/
+     GObjectClass parent_class;
+};
+
+/* methods */
+
+GQuark gst_gl_shader_error_quark (void);
+GType gst_gl_shader_get_type (void);
+
+GstGLShader * gst_gl_shader_new (void);
+
+void gst_gl_shader_set_vertex_source   (GstGLShader *shader, 
+					const gchar *src);
+void gst_gl_shader_set_fragment_source (GstGLShader *shader, 
+					const gchar *src);
+G_CONST_RETURN gchar * gst_gl_shader_get_vertex_source (GstGLShader *shader);
+G_CONST_RETURN gchar * gst_gl_shader_get_fragment_source (GstGLShader *shader);
+
+void gst_gl_shader_set_active (GstGLShader *shader,
+			       gboolean active);
+
+gboolean gst_gl_shader_is_active (GstGLShader *shader);
+
+gboolean gst_gl_shader_compile (GstGLShader *shader, GError **error);
+
+G_END_DECLS
+
+#endif /* __GST_GL_SHADER_H__ */

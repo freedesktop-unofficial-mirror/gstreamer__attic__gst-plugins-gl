@@ -153,6 +153,13 @@ gst_gl_filter_reset (GstGLFilter * filter)
 static gboolean
 gst_gl_filter_start (GstBaseTransform * bt)
 {
+  GstGLFilter *filter;
+  GstGLFilterClass *filter_class;
+
+  /* filter = GST_GL_FILTER (bt); */
+  /* filter_class = GST_GL_FILTER_GET_CLASS (filter); */
+
+  /* filter_class->start(filter); */
 
   return TRUE;
 }

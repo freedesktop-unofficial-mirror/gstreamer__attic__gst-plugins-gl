@@ -16,7 +16,9 @@ void glGetObjectParameterivARB (GLhandleARB object, GLenum pname, GLint *params)
 void glGetInfoLogARB (GLhandleARB object, GLsizei maxLength, GLsizei *length,
     GLcharARB *infoLog);
 GLhandleARB glCreateProgramObjectARB (void);
+void glDeleteObjectARB (GLhandleARB object);
 void glAttachObjectARB (GLhandleARB program, GLhandleARB shader);
+void glDetachObjectARB (GLhandleARB program, GLhandleARB shader);
 void glLinkProgramARB (GLhandleARB program);
 void glUseProgramObjectARB (GLhandleARB program);
 void glPixelDataRangeNV(GLenum target, GLsizei length, void *pointer);

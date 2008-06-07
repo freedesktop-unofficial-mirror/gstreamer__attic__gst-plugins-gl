@@ -86,8 +86,12 @@ DEFINE_FUNC (glGetInfoLogARB, (GLhandleARB object, GLsizei maxLength,
         infoLog));
 
 DEFINE_FUNC_RET (glCreateProgramObjectARB, GLhandleARB, (void), ());
+DEFINE_FUNC_RET (glDeleteObjectARB, void, (GLhandleARB object), (object));
 
 DEFINE_FUNC (glAttachObjectARB, (GLhandleARB program, GLhandleARB shader),
+    (program, shader));
+
+DEFINE_FUNC (glDetachObjectARB, (GLhandleARB program, GLhandleARB shader),
     (program, shader));
 
 DEFINE_FUNC (glLinkProgramARB, (GLhandleARB program), (program));

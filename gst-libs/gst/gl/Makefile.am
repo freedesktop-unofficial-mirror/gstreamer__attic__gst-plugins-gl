@@ -5,14 +5,17 @@ libgstgl_@GST_MAJORMINOR@_la_SOURCES = \
 	glextensions.c \
 	gstglbuffer.c \
 	gstgldisplay.c \
-	gstglfilter.c
+	gstglfilter.c \
+	gstglshader.c
 
 libgstgl_@GST_MAJORMINOR@includedir = $(includedir)/gstreamer-@GST_MAJORMINOR@/gst/gl
 libgstgl_@GST_MAJORMINOR@include_HEADERS = \
 	glextensions.h \
 	gstglbuffer.h \
 	gstgldisplay.h \
-	gstglfilter.h
+	gstglfilter.h \
+	gstglprogram.h \
+	gstglshader.h
 
 libgstgl_@GST_MAJORMINOR@_la_LIBADD = \
 	$(GST_PLUGINS_BASE_LIBS) -lgstvideo-$(GST_MAJORMINOR) \

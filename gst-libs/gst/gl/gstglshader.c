@@ -457,6 +457,26 @@ gst_gl_program_use (GstGLProgram * program)
   return TRUE;
 }
 
+void
+gst_gl_program_set_uniform_1f (GstGLProgram * program, const gchar * name,
+    gfloat value)
+{
+  GstGLProgramPrivate *priv;
+  GLint location = 1;
+
+  priv = program->priv;
+
+  g_return_if_fail (priv->handle != 0);
+
+  location = glGetUniformLocationARB (priv->handle, name);
+
+  g_message ("setting %f to location %d", value, location);
+
+  if (location != 1) {
+    glUniform1fARB (location, value);
+  }
+}
+
 GQuark
 gst_gl_shader_error_quark (void)
 {

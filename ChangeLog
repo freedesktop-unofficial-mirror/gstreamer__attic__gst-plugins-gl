@@ -1,9 +1,16 @@
 2008-06-07  Filippo Argiolas <filippo dot argiolas at gmail dot com>
+	* gst-libs/gst/gl/glshader.c,h:
+	* gst-libs/gst/gl/glprogram.h:
+	* gst-libs/gst/gl/glextensions.c,h:
+	Added loading scalar float uniforms (the only ones I need at the
+	moment) support. Other minor changes.
+
+2008-06-07  Filippo Argiolas <filippo dot argiolas at gmail dot com>
 	* gst-libs/gst/gl/gstglshader.c:
 	* gst-libs/gst/gl/gstglshader.h:
 	* gst-libs/gst/gl/gstglprogram.h:
 	Merged first work for Google Summer of Code 2008.
-	Iinitial draft for a couple of GObject classes to manage GLSL Program
+	Initial draft for a couple of GObject classes to manage GLSL Program
 	and Shader Objects. It's far from complete but usable yet, still need
 	some data structure to track which shader are attached with which
 	programs, uniform variables support etc

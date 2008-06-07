@@ -57,6 +57,7 @@ GstGLProgram *gst_gl_program_new (void);
 gboolean gst_gl_program_set_shader (GstGLProgram *program, GstGLShader *shader, GError **error);
 gboolean gst_gl_program_detach_shader (GstGLProgram *program, GstGLShader *shader);
 gboolean gst_gl_program_use (GstGLProgram *program);
+void gst_gl_program_set_uniform_1f (GstGLProgram *program, const gchar *name, gfloat value);
 
 G_END_DECLS
 

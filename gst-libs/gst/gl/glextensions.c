@@ -75,6 +75,7 @@ DEFINE_FUNC_RET (glGetUniformLocationARB, GLint,
     (GLhandleARB programObj, const GLcharARB * name), (programObj, name));
 
 DEFINE_FUNC (glUniform1iARB, (GLint location, GLint val), (location, val));
+DEFINE_FUNC (glUniform1fARB, (GLint location, GLfloat val), (location, val));
 
 DEFINE_FUNC (glGetObjectParameterivARB, (GLhandleARB object, GLenum pname,
         GLint * params), (object, pname, params));

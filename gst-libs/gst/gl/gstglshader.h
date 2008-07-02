@@ -37,9 +37,9 @@ G_BEGIN_DECLS
 #define GST_GL_SHADER_ERROR (gst_gl_shader_error_quark ())
 
 typedef enum {
-     GST_GL_SHADER_ERROR_COMPILE,
-     GST_GL_SHADER_ERROR_LINK,
-     GST_GL_SHADER_ERROR_PROGRAM
+  GST_GL_SHADER_ERROR_COMPILE,
+  GST_GL_SHADER_ERROR_LINK,
+  GST_GL_SHADER_ERROR_PROGRAM
 } GstGLShaderError;
 
 typedef struct _GstGLShader        GstGLShader;
@@ -47,14 +47,14 @@ typedef struct _GstGLShaderPrivate GstGLShaderPrivate;
 typedef struct _GstGLShaderClass   GstGLShaderClass;
 
 struct _GstGLShader {
-     /*< private >*/
-     GObject parent;
-     GstGLShaderPrivate *priv;
+  /*< private >*/
+  GObject parent;
+  GstGLShaderPrivate *priv;
 };
 
 struct _GstGLShaderClass {
-     /*< private >*/
-     GObjectClass parent_class;
+  /*< private >*/
+  GObjectClass parent_class;
 };
 
 /* methods */
@@ -74,9 +74,16 @@ G_CONST_RETURN gchar * gst_gl_shader_get_fragment_source (GstGLShader *shader);
 void gst_gl_shader_set_active (GstGLShader *shader,
 			       gboolean active);
 
-gboolean gst_gl_shader_is_active (GstGLShader *shader);
+gboolean gst_gl_shader_is_compiled (GstGLShader *shader);
 
 gboolean gst_gl_shader_compile (GstGLShader *shader, GError **error);
+void gst_gl_shader_release (GstGLShader *shader);
+void gst_gl_shader_use (GstGLShader *shader);
+
+void gst_gl_shader_set_uniform_1i (GstGLShader *shader, const gchar *name, gint value);
+void gst_gl_shader_set_uniform_1f (GstGLShader *shader, const gchar *name, gfloat value);
+void gst_gl_shader_set_uniform_1fv (GstGLShader *shader, const gchar *name, guint count, gfloat * value);
+
 
 G_END_DECLS
 

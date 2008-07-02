@@ -1,3 +1,18 @@
+2008-07-02  Filippo Argiolas <filippo dot argiolas at gmail dot com>
+	* gst-libs/gst/gl/glshader.c,h:
+	Removed GstGLProgram and let each shader object have its own program
+	object so that it's easy to manage them and apply them to multiple
+	rendering passes (see SoC reports on gnome-soc-list for detailed info)
+	* gst/gl/gstgleffects.c:
+	* gst/gl/gstgleffectssources.h:
+	* gst/gl/gstgleffectstextures.h:
+	Added a first working version of GstGLEffects element, support for
+	some nice effect (mainly distortion and color curve ones). Made some
+	effort to support multiple subsequent rendering targets so that more
+	effects could be chained. Many things to fix yet!
+	* tests/examples/fxtest.c: Little gtk+ test app (the one I use for
+	testing, edit caps in the source if you want to try it)
+
 2008-06-07  Filippo Argiolas <filippo dot argiolas at gmail dot com>
 	* gst-libs/gst/gl/glshader.c,h:
 	* gst-libs/gst/gl/glprogram.h:

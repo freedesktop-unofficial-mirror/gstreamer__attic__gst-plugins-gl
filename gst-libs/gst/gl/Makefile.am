@@ -14,7 +14,6 @@ libgstgl_@GST_MAJORMINOR@include_HEADERS = \
 	gstglbuffer.h \
 	gstgldisplay.h \
 	gstglfilter.h \
-	gstglprogram.h \
 	gstglshader.h
 
 libgstgl_@GST_MAJORMINOR@_la_LIBADD = \

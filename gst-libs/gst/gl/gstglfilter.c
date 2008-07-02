@@ -295,6 +295,7 @@ gst_gl_filter_do_transform (GstGLFilter * filter,
   glActiveTexture (GL_TEXTURE0);
   glBindTexture (GL_TEXTURE_RECTANGLE_ARB, inbuf->texture);
 
+
   filter_class->filter (filter, inbuf, outbuf);
 
 #if 0

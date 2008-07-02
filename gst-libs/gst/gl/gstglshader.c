@@ -22,22 +22,11 @@
 #include "config.h"
 #endif
 
-#include "gstglprogram.h"
 #include "gstglshader.h"
 #include "glextensions.h"
 
-#define GST_GL_PROGRAM_GET_PRIVATE(o) \
-     (G_TYPE_INSTANCE_GET_PRIVATE((o), GST_GL_TYPE_PROGRAM, GstGLProgramPrivate))
-
-struct _GstGLProgramPrivate
-{
-  GLhandleARB handle;
-};
-
-G_DEFINE_TYPE (GstGLProgram, gst_gl_program, G_TYPE_OBJECT);
-
-#define GST_GL_SHADER_GET_PRIVATE(o) \
-     (G_TYPE_INSTANCE_GET_PRIVATE((o), GST_GL_TYPE_SHADER, GstGLShaderPrivate))
+#define GST_GL_SHADER_GET_PRIVATE(o)					\
+  (G_TYPE_INSTANCE_GET_PRIVATE((o), GST_GL_TYPE_SHADER, GstGLShaderPrivate))
 
 enum
 {
@@ -45,7 +34,7 @@ enum
   PROP_VERTEX_SRC,
   PROP_FRAGMENT_SRC,
   PROP_COMPILED,
-  PROP_ACTIVE
+  PROP_ACTIVE                   //unused
 };
 
 struct _GstGLShaderPrivate
@@ -55,6 +44,7 @@ struct _GstGLShaderPrivate
 
   GLhandleARB vertex_handle;
   GLhandleARB fragment_handle;
+  GLhandleARB program_handle;
 
   gboolean compiled;
   gboolean active;
@@ -63,55 +53,11 @@ struct _GstGLShaderPrivate
 G_DEFINE_TYPE (GstGLShader, gst_gl_shader, G_TYPE_OBJECT);
 
 static void
-gst_gl_program_finalize (GObject * object)
-{
-  GstGLProgram *program;
-  GstGLProgramPrivate *priv;
-
-  program = GST_GL_PROGRAM (object);
-  priv = program->priv;
-
-  /* Q.what if handle is 0? A.from spec: 
-     glDeleteObject() will silently ignore deleting the value 0. */
-
-  glDeleteObjectARB (priv->handle);
-
-  G_OBJECT_CLASS (gst_gl_program_parent_class)->finalize (object);
-}
-
-static void
-gst_gl_program_class_init (GstGLProgramClass * klass)
-{
-  /* bind class methods .. */
-  GObjectClass *obj_class = G_OBJECT_CLASS (klass);
-
-  g_type_class_add_private (klass, sizeof (GstGLProgramPrivate));
-
-  obj_class->finalize = gst_gl_program_finalize;
-}
-
-static void
-gst_gl_program_init (GstGLProgram * self)
-{
-  /* initialize sources and program to null */
-  GstGLProgramPrivate *priv;
-
-  priv = self->priv = GST_GL_PROGRAM_GET_PRIVATE (self);
-
-  priv->handle = glCreateProgramObjectARB ();
-}
-
-GstGLProgram *
-gst_gl_program_new (void)
-{
-  return g_object_new (GST_GL_TYPE_PROGRAM, NULL);
-}
-
-static void
 gst_gl_shader_finalize (GObject * object)
 {
   GstGLShader *shader;
   GstGLShaderPrivate *priv;
+  GLint status = GL_FALSE;
 
   shader = GST_GL_SHADER (object);
   priv = shader->priv;
@@ -119,7 +65,22 @@ gst_gl_shader_finalize (GObject * object)
   g_free (priv->vertex_src);
   g_free (priv->fragment_src);
 
-  /* FIXME: release all the shaders after use */
+  /* release shader objects */
+  gst_gl_shader_release (shader);
+
+  /* delete program */
+  glDeleteObjectARB (priv->program_handle);
+  GLenum err = glGetError ();
+  g_debug ("error: 0x%x", err);
+
+  glGetObjectParameterivARB (priv->program_handle, GL_OBJECT_DELETE_STATUS_ARB,
+      &status);
+
+  g_debug ("deletion status:%d", status);
+
+  priv->fragment_handle = 0;
+  priv->vertex_handle = 0;
+  priv->program_handle = 0;
 
   G_OBJECT_CLASS (gst_gl_shader_parent_class)->finalize (object);
 }
@@ -157,6 +118,9 @@ gst_gl_shader_get_property (GObject * object,
     case PROP_FRAGMENT_SRC:
       g_value_set_string (value, priv->fragment_src);
       break;
+    case PROP_COMPILED:
+      g_value_set_boolean (value, priv->compiled);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
@@ -192,8 +156,11 @@ gst_gl_shader_class_init (GstGLShaderClass * klass)
       PROP_ACTIVE,
       g_param_spec_string ("active",
           "Active", "Enable/Disable the shader", NULL, G_PARAM_READWRITE));
-
-
+  g_object_class_install_property (obj_class,
+      PROP_COMPILED,
+      g_param_spec_boolean ("compiled",
+          "Compiled",
+          "Shader compile and link status", FALSE, G_PARAM_READABLE));
 }
 
 void
@@ -205,6 +172,9 @@ gst_gl_shader_set_vertex_source (GstGLShader * shader, const gchar * src)
   g_return_if_fail (src != NULL);
 
   priv = shader->priv;
+
+  if (gst_gl_shader_is_compiled (shader))
+    gst_gl_shader_release (shader);
 
   g_free (priv->vertex_src);
 
@@ -220,6 +190,9 @@ gst_gl_shader_set_fragment_source (GstGLShader * shader, const gchar * src)
   g_return_if_fail (src != NULL);
 
   priv = shader->priv;
+
+  if (gst_gl_shader_is_compiled (shader))
+    gst_gl_shader_release (shader);
 
   g_free (priv->fragment_src);
 
@@ -243,7 +216,7 @@ gst_gl_shader_get_fragment_source (GstGLShader * shader)
 static void
 gst_gl_shader_init (GstGLShader * self)
 {
-  /* initialize sources and program to null */
+  /* initialize sources and create program object */
   GstGLShaderPrivate *priv;
 
   priv = self->priv = GST_GL_SHADER_GET_PRIVATE (self);
@@ -253,9 +226,12 @@ gst_gl_shader_init (GstGLShader * self)
 
   priv->fragment_handle = 0;
   priv->vertex_handle = 0;
+  priv->program_handle = glCreateProgramObjectARB ();
+
+  g_assert (priv->program_handle);
 
   priv->compiled = FALSE;
-  priv->active = FALSE;
+  priv->active = FALSE;         // unused at the moment
 }
 
 GstGLShader *
@@ -264,68 +240,12 @@ gst_gl_shader_new (void)
   return g_object_new (GST_GL_TYPE_SHADER, NULL);
 }
 
-
-static gboolean
-gst_gl_program_attach_shader (GstGLShader * shader, GstGLProgram * program)
+gboolean
+gst_gl_shader_is_compiled (GstGLShader * shader)
 {
-  GstGLShaderPrivate *shader_priv;
-  GstGLProgramPrivate *program_priv;
-
   g_return_val_if_fail (GST_GL_IS_SHADER (shader), FALSE);
-  g_return_val_if_fail (GST_GL_IS_PROGRAM (program), FALSE);
 
-  shader_priv = shader->priv;
-  program_priv = program->priv;
-
-  g_return_val_if_fail (program_priv->handle, FALSE);
-
-  if (shader_priv->vertex_handle) {
-    glAttachObjectARB (program_priv->handle, shader_priv->vertex_handle);
-
-    glDeleteObjectARB (shader_priv->vertex_handle);
-  }
-  if (shader_priv->fragment_handle) {
-    glAttachObjectARB (program_priv->handle, shader_priv->fragment_handle);
-    glDeleteObjectARB (shader_priv->fragment_handle);
-  }
-
-  return TRUE;
-}
-
-static gboolean
-gst_gl_program_link (GstGLProgram * program, GError ** error)
-{
-  GstGLProgramPrivate *priv;
-
-  gchar info_buffer[2048];
-  GLsizei len = 0;
-  GLint status = GL_FALSE;
-
-  g_return_val_if_fail (GST_GL_IS_PROGRAM (program), FALSE);
-
-  priv = program->priv;
-
-  g_return_val_if_fail (priv->handle, FALSE);
-
-  glLinkProgramARB (priv->handle);
-
-  glGetObjectParameterivARB (priv->handle, GL_LINK_STATUS, &status);
-
-  glGetInfoLogARB (priv->handle, sizeof (info_buffer) - 1, &len, info_buffer);
-  info_buffer[len] = '\0';
-
-  if (status != GL_TRUE) {
-    g_set_error (error, GST_GL_SHADER_ERROR,
-        GST_GL_SHADER_ERROR_LINK, "Shader Linking failed:\n%s", info_buffer);
-
-    return FALSE;
-  } else if (len > 1) {
-    g_message ("%s\n", info_buffer);
-  }
-
-  glUseProgramObjectARB (priv->handle);
-
-  return TRUE;
+  return shader->priv->compiled;
 }
 
 gboolean
@@ -341,140 +261,181 @@ gst_gl_shader_compile (GstGLShader * shader, GError ** error)
 
   priv = shader->priv;
 
-  if (priv->vertex_src) {
-    const gchar *vertex_source = priv->vertex_src;
+  if (priv->compiled)
+    return priv->compiled;
 
+  g_assert (priv->program_handle);
+
+  if (priv->vertex_src) {
+    /* create vertex object */
+    const gchar *vertex_source = priv->vertex_src;
     priv->vertex_handle = glCreateShaderObjectARB (GL_VERTEX_SHADER);
     glShaderSourceARB (priv->vertex_handle, 1, &vertex_source, NULL);
-
+    /* compile */
     glCompileShaderARB (priv->vertex_handle);
-
-    glGetInfoLogARB (priv->vertex_handle, sizeof (info_buffer) - 1, &len,
-        info_buffer);
-    info_buffer[len] = '\0';
-
-    glGetObjectParameterivARB (priv->vertex_handle, GL_COMPILE_STATUS, &status);
-    if (status != GL_TRUE) {
-      g_set_error (error, GST_GL_SHADER_ERROR,
-          GST_GL_SHADER_ERROR_COMPILE,
-          "Vertex Shader compilation failed:\n%s", info_buffer);
-
-      return FALSE;
-    } else if (len > 1) {
-      g_message ("%s\n", info_buffer);
-    }
-  }
-
-  if (priv->fragment_src) {
-    const gchar *fragment_source = priv->fragment_src;
-
-    priv->fragment_handle = glCreateShaderObjectARB (GL_FRAGMENT_SHADER_ARB);
-    glShaderSourceARB (priv->fragment_handle, 1, &fragment_source, NULL);
-
-    glCompileShaderARB (priv->fragment_handle);
-
-    glGetObjectParameterivARB (priv->fragment_handle,
+    /* check everything is ok */
+    glGetObjectParameterivARB (priv->vertex_handle,
         GL_OBJECT_COMPILE_STATUS_ARB, &status);
 
-    glGetInfoLogARB (priv->fragment_handle,
+    glGetInfoLogARB (priv->vertex_handle,
         sizeof (info_buffer) - 1, &len, info_buffer);
     info_buffer[len] = '\0';
 
     if (status != GL_TRUE) {
       g_set_error (error, GST_GL_SHADER_ERROR,
           GST_GL_SHADER_ERROR_COMPILE,
+          "Vertex Shader compilation failed:\n%s", info_buffer);
+
+      glDeleteObjectARB (priv->vertex_handle);
+      priv->compiled = FALSE;
+      return priv->compiled;
+    } else if (len > 1) {
+      g_debug ("%s\n", info_buffer);
+    }
+    glAttachObjectARB (priv->program_handle, priv->vertex_handle);
+  }
+
+  if (priv->fragment_src) {
+    /* create fragment object */
+    const gchar *fragment_source = priv->fragment_src;
+    priv->fragment_handle = glCreateShaderObjectARB (GL_FRAGMENT_SHADER_ARB);
+    glShaderSourceARB (priv->fragment_handle, 1, &fragment_source, NULL);
+    /* compile */
+    glCompileShaderARB (priv->fragment_handle);
+    /* check everything is ok */
+    glGetObjectParameterivARB (priv->fragment_handle,
+        GL_OBJECT_COMPILE_STATUS_ARB, &status);
+
+    glGetInfoLogARB (priv->fragment_handle,
+        sizeof (info_buffer) - 1, &len, info_buffer);
+    info_buffer[len] = '\0';
+    if (status != GL_TRUE) {
+      g_set_error (error, GST_GL_SHADER_ERROR,
+          GST_GL_SHADER_ERROR_COMPILE,
           "Fragment Shader compilation failed:\n%s", info_buffer);
 
-      return FALSE;
+      glDeleteObjectARB (priv->fragment_handle);
+      priv->compiled = FALSE;
+      return priv->compiled;
     } else if (len > 1) {
-      g_message ("%s\n", info_buffer);
+      g_debug ("%s\n", info_buffer);
     }
-  }
-  return TRUE;
-}
-
-/* FIXME: replace with and _add function to bind multiple shaders to */
-/*        the same program, introduce some kind of data struct to keep
- *        track of current shaders */
-
-gboolean
-gst_gl_program_set_shader (GstGLProgram * program, GstGLShader * shader,
-    GError ** error)
-{
-  GstGLProgramPrivate *priv;
-
-  priv = program->priv;
-
-  g_return_val_if_fail (priv->handle != 0, FALSE);
-
-  if (!gst_gl_shader_compile (shader, error))
-    return FALSE;
-
-  gst_gl_program_attach_shader (shader, program);
-
-  return gst_gl_program_link (program, error);
-}
-
-gboolean
-gst_gl_program_detach_shader (GstGLProgram * program, GstGLShader * shader)
-{
-  GstGLShaderPrivate *shader_priv;
-  GstGLProgramPrivate *program_priv;
-
-  g_return_val_if_fail (GST_GL_IS_SHADER (shader), FALSE);
-  g_return_val_if_fail (GST_GL_IS_PROGRAM (program), FALSE);
-
-  shader_priv = shader->priv;
-  program_priv = program->priv;
-
-  g_return_val_if_fail (program_priv->handle, FALSE);
-
-  if (shader_priv->vertex_handle) {
-    glDetachObjectARB (program_priv->handle, shader_priv->vertex_handle);
-
-  }
-  if (shader_priv->fragment_handle) {
-    glDetachObjectARB (program_priv->handle, shader_priv->fragment_handle);
-  }
-  return TRUE;
-}
-
-gboolean
-gst_gl_program_use (GstGLProgram * program)
-{
-  GstGLProgramPrivate *priv;
-
-  if (!program) {
-    g_message ("No program object given, restoring fixed state");
-    glUseProgramObjectARB (0);
-    return TRUE;
+    glAttachObjectARB (priv->program_handle, priv->fragment_handle);
   }
 
-  priv = program->priv;
+  /* if nothing failed link shaders */
+  glLinkProgramARB (priv->program_handle);
 
-  glUseProgramObjectARB (priv->handle);
+  glGetObjectParameterivARB (priv->program_handle, GL_LINK_STATUS, &status);
 
-  return TRUE;
+  glGetInfoLogARB (priv->program_handle,
+      sizeof (info_buffer) - 1, &len, info_buffer);
+  info_buffer[len] = '\0';
+
+  if (status != GL_TRUE) {
+    g_set_error (error, GST_GL_SHADER_ERROR,
+        GST_GL_SHADER_ERROR_LINK, "Shader Linking failed:\n%s", info_buffer);
+    priv->compiled = FALSE;
+    return priv->compiled;
+  } else if (len > 1) {
+    g_debug ("%s\n", info_buffer);
+  }
+  /* success! */
+  priv->compiled = TRUE;
+  g_object_notify (G_OBJECT (shader), "compiled");
+
+  return priv->compiled;
 }
 
 void
-gst_gl_program_set_uniform_1f (GstGLProgram * program, const gchar * name,
+gst_gl_shader_release (GstGLShader * shader)
+{
+  GstGLShaderPrivate *priv;
+
+  g_return_if_fail (GST_GL_IS_SHADER (shader));
+
+  priv = shader->priv;
+
+  g_assert (priv->program_handle);
+
+  if (!priv->compiled)
+    return;
+
+  glDeleteObjectARB (priv->vertex_handle);
+  glDeleteObjectARB (priv->fragment_handle);
+
+  glDetachObjectARB (priv->program_handle, priv->vertex_handle);
+  glDetachObjectARB (priv->program_handle, priv->fragment_handle);
+
+  priv->compiled = FALSE;
+  g_object_notify (G_OBJECT (shader), "compiled");
+}
+
+void
+gst_gl_shader_use (GstGLShader * shader)
+{
+  GstGLShaderPrivate *priv;
+
+  if (!shader) {
+    glUseProgramObjectARB (0);
+    return;
+  }
+
+  priv = shader->priv;
+
+  g_assert (priv->program_handle);
+
+  glUseProgramObjectARB (priv->program_handle);
+
+  return;
+}
+
+void
+gst_gl_shader_set_uniform_1f (GstGLShader * shader, const gchar * name,
     gfloat value)
 {
-  GstGLProgramPrivate *priv;
-  GLint location = 1;
+  GstGLShaderPrivate *priv;
+  GLint location = -1;
 
-  priv = program->priv;
+  priv = shader->priv;
 
-  g_return_if_fail (priv->handle != 0);
+  g_return_if_fail (priv->program_handle != 0);
 
-  location = glGetUniformLocationARB (priv->handle, name);
+  location = glGetUniformLocationARB (priv->program_handle, name);
 
-  g_message ("setting %f to location %d", value, location);
+  glUniform1fARB (location, value);
+}
 
-  if (location != 1) {
-    glUniform1fARB (location, value);
-  }
+void
+gst_gl_shader_set_uniform_1fv (GstGLShader * shader, const gchar * name,
+    guint count, gfloat * value)
+{
+  GstGLShaderPrivate *priv;
+  GLint location = -1;
+
+  priv = shader->priv;
+
+  g_return_if_fail (priv->program_handle != 0);
+
+  location = glGetUniformLocationARB (priv->program_handle, name);
+
+  glUniform1fvARB (location, count, value);
+}
+
+void
+gst_gl_shader_set_uniform_1i (GstGLShader * shader, const gchar * name,
+    gint value)
+{
+  GstGLShaderPrivate *priv;
+  GLint location = -1;
+
+  priv = shader->priv;
+
+  g_return_if_fail (priv->program_handle != 0);
+
+  location = glGetUniformLocationARB (priv->program_handle, name);
+
+  glUniform1iARB (location, value);
 }
 
 GQuark

@@ -12,6 +12,7 @@ void glUniform2fARB (GLint location, GLfloat val1, GLfloat val2);
 GLint glGetUniformLocationARB (GLhandleARB programObj, const GLcharARB *name);
 void glUniform1iARB (GLint location, GLint val);
 void glUniform1fARB (GLint location, GLfloat val);
+void glUniform1fvARB (GLint location, GLuint count,GLfloat * val);
 void glCompileShaderARB (GLhandleARB shader);
 void glGetObjectParameterivARB (GLhandleARB object, GLenum pname, GLint *params);
 void glGetInfoLogARB (GLhandleARB object, GLsizei maxLength, GLsizei *length,

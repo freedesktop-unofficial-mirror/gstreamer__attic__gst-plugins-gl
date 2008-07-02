@@ -35,6 +35,7 @@
 GType gst_gl_upload_get_type (void);
 GType gst_gl_download_get_type (void);
 GType gst_gl_filter_example_get_type (void);
+GType gst_gl_effects_get_type (void);
 GType gst_gl_convert_get_type (void);
 GType gst_gl_test_src_get_type (void);
 
@@ -58,6 +59,11 @@ plugin_init (GstPlugin * plugin)
           GST_RANK_NONE, gst_gl_filter_example_get_type ())) {
     return FALSE;
   }
+  if (!gst_element_register (plugin, "gleffects",
+          GST_RANK_NONE, gst_gl_effects_get_type ())) {
+    return FALSE;
+  }
+
   if (!gst_element_register (plugin, "glconvert",
           GST_RANK_NONE, gst_gl_convert_get_type ())) {
     return FALSE;

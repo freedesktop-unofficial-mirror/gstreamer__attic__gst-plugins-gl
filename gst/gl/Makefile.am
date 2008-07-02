@@ -16,6 +16,7 @@ libgstopengl_la_SOURCES = \
 	gstgltestsrc.h \
 	gltestsrc.c \
 	gltestsrc.h \
+	gstgleffects.c \ 
 	gstglfilterexample.c \
 	gstglconvert.c
 # check order of CFLAGS and LIBS, shouldn't the order be the other way around

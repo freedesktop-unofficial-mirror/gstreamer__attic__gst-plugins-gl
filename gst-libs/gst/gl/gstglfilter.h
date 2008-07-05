@@ -37,8 +37,8 @@ typedef struct _GstGLFilterClass GstGLFilterClass;
 
 typedef gboolean (*GstGLFilterProcessFunc) (GstGLFilter *filter,
     GstGLBuffer *inbuf, GstGLBuffer *outbuf);
-
-/* typedef gboolean (*GstGLFilterStartFunc) (GstGLFilter *filter); */
+typedef gboolean (*GstGLFilterStopFunc) (GstGLFilter *filter);
+typedef gboolean (*GstGLFilterStartFunc) (GstGLFilter *filter); 
 
 struct _GstGLFilter
 {
@@ -59,7 +59,8 @@ struct _GstGLFilterClass
 {
   GstBaseTransformClass base_transform_class;
   GstGLFilterProcessFunc filter;
-/*  GstGLFilterStartFunc start; */
+  GstGLFilterStartFunc start;
+  GstGLFilterStopFunc stop;
 };
 
 GType gst_gl_filter_get_type(void);

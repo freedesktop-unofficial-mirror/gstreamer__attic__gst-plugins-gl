@@ -74,6 +74,7 @@ struct _GstGLEffects
   GstGLShader *current_shader;
   gint current_effect;
   gboolean effect_changed;
+  gboolean is_mirrored;
   GLuint intexture;
   GLuint midtexture[10];
   GLuint outtexture;
@@ -131,7 +132,8 @@ GST_ELEMENT_DETAILS ("Gstreamer OpenGL Effects",
 enum
 {
   PROP_0,
-  PROP_EFFECT
+  PROP_EFFECT,
+  PROP_MIRROR
 };
 
 #define DEBUG_INIT(bla)							\
@@ -145,31 +147,51 @@ static void gst_gl_effects_set_property (GObject * object, guint prop_id,
 static void gst_gl_effects_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 static void gst_gl_effects_set_target (GstGLEffects * effects, GLuint tex);
-static void gst_gl_effects_draw_texture (GstGLEffects * effects,
-    GLuint tex, gboolean mirrored);
+static void gst_gl_effects_draw_texture (GstGLEffects * effects, GLuint tex);
 
 static GstFlowReturn gst_gl_effects_transform (GstBaseTransform * bt,
     GstBuffer * inbuf, GstBuffer * outbuf);
 static void gst_gl_effects_identity (GstGLEffects * effects);
 
-static void
-gst_gl_effects_finalize (GObject * object)
+static gboolean
+gst_gl_effects_stop (GstGLFilter * filter)
 {
   GstGLEffects *effects;
-  GstGLFilter *filter;
 
-  effects = GST_GL_EFFECTS (object);
-  filter = GST_GL_FILTER (effects);
+  int i;
+
+  effects = GST_GL_EFFECTS (filter);
 
   gst_gl_display_lock (filter->display);
 
-  GST_ERROR ("finalize");
+  for (i = 0; i < 10; i++) {
+    glDeleteTextures (1, &effects->midtexture[i]);
+  }
+
+  g_hash_table_unref (shaderstable);
 
   glDeleteFramebuffersEXT (1, &effects->fbo);
+  GLenum err = glGetError ();
+  if (err)
+    g_warning (G_STRLOC "error: 0x%x", err);
 
   gst_gl_display_unlock (filter->display);
 
-  GST_CALL_PARENT (G_OBJECT_CLASS, finalize, (object));
+  return TRUE;
+}
+
+static gboolean
+gst_gl_effects_start (GstGLFilter * filter)
+{
+  GstGLEffects *effects = GST_GL_EFFECTS (filter);
+
+  effects->effect_changed = FALSE;
+  effects->current_shader = NULL;
+
+  shaderstable = g_hash_table_new_full (g_str_hash,
+      g_str_equal, NULL, g_object_unref);
+
+  return TRUE;
 }
 
 static void
@@ -188,9 +210,10 @@ gst_gl_effects_class_init (GstGLEffectsClass * klass)
   gobject_class = (GObjectClass *) klass;
   gobject_class->set_property = gst_gl_effects_set_property;
   gobject_class->get_property = gst_gl_effects_get_property;
-  gobject_class->finalize = gst_gl_effects_finalize;
 
   GST_BASE_TRANSFORM_CLASS (klass)->transform = gst_gl_effects_transform;
+  GST_GL_FILTER_CLASS (klass)->start = gst_gl_effects_start;
+  GST_GL_FILTER_CLASS (klass)->stop = gst_gl_effects_stop;
 
   g_object_class_install_property (gobject_class,
       PROP_EFFECT,
@@ -199,15 +222,19 @@ gst_gl_effects_class_init (GstGLEffectsClass * klass)
           "Select which effect apply to GL video texture",
           GST_TYPE_GL_EFFECTS_EFFECT,
           GST_GL_EFFECT_IDENTITY, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+  g_object_class_install_property (gobject_class,
+      PROP_MIRROR,
+      g_param_spec_boolean ("mirror",
+          "Reflect horizontally",
+          "Reflects images horizontally, usefull with webcams",
+          FALSE, G_PARAM_READWRITE));
+
 }
 
 static void
 gst_gl_effects_init (GstGLEffects * effects, GstGLEffectsClass * klass)
 {
-  effects->effect_changed = FALSE;
-  effects->current_shader = NULL;
   effects->effect = gst_gl_effects_identity;
-  shaderstable = g_hash_table_new (g_str_hash, g_str_equal);
 }
 
 static void
@@ -215,7 +242,7 @@ gst_gl_effects_identity (GstGLEffects * effects)
 {
 
   gst_gl_effects_set_target (effects, effects->outtexture);
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 
 }
 
@@ -271,7 +298,7 @@ gst_gl_effects_mirror (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -326,7 +353,7 @@ gst_gl_effects_tunnel (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -381,7 +408,7 @@ gst_gl_effects_twirl (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -436,7 +463,7 @@ gst_gl_effects_bulge (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -491,7 +518,7 @@ gst_gl_effects_stretch (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -546,7 +573,7 @@ gst_gl_effects_squeeze (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -601,7 +628,7 @@ gst_gl_effects_fisheye (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 static void
@@ -656,7 +683,7 @@ gst_gl_effects_square (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader, "width", tex_size[0]);
   gst_gl_shader_set_uniform_1f (shader, "height", tex_size[1]);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
 }
 
 
@@ -693,7 +720,7 @@ gst_gl_effects_test (GstGLEffects * effects)
     g_hash_table_insert (shaderstable, "test2", shader2);
   }
 
-  gst_gl_effects_set_target (effects, effects->midtexture[0]);
+  gst_gl_effects_set_target (effects, effects->outtexture);
 
   g_object_get (G_OBJECT (shader0), "compiled", &is_compiled, NULL);
 
@@ -703,7 +730,7 @@ gst_gl_effects_test (GstGLEffects * effects)
     gst_gl_shader_set_fragment_source (shader0, test_fragment_source);
     gst_gl_shader_compile (shader0, &error);
     if (error) {
-      GST_ERROR ("%s", error->message);
+      g_error ("%s", error->message);
       g_error_free (error);
       error = NULL;
       gst_gl_shader_use (NULL);
@@ -724,7 +751,9 @@ gst_gl_effects_test (GstGLEffects * effects)
 
   gst_gl_shader_set_uniform_1i (shader0, "tex", 0);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, FALSE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
+
+  return;
 
   gst_gl_effects_set_target (effects, effects->midtexture[1]);
 
@@ -757,7 +786,7 @@ gst_gl_effects_test (GstGLEffects * effects)
   gst_gl_shader_set_uniform_1f (shader1, "norm_const", 16.0);
   gst_gl_shader_set_uniform_1f (shader1, "norm_offset", 0.0);
 
-  gst_gl_effects_draw_texture (effects, effects->midtexture[0], FALSE);
+  gst_gl_effects_draw_texture (effects, effects->midtexture[0]);
 
   gst_gl_effects_set_target (effects, effects->outtexture);
 
@@ -793,7 +822,7 @@ gst_gl_effects_test (GstGLEffects * effects)
 
   gst_gl_shader_set_uniform_1i (shader2, "blend", 1);
 
-  gst_gl_effects_draw_texture (effects, effects->midtexture[1], TRUE);
+  gst_gl_effects_draw_texture (effects, effects->midtexture[1]);
 }
 
 static void
@@ -851,7 +880,9 @@ gst_gl_effects_heat (GstGLEffects * effects)
 
   glDisable (GL_TEXTURE_1D);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
+
+  glDeleteTextures (1, &heat_texture);
 }
 
 static void
@@ -909,7 +940,9 @@ gst_gl_effects_cross (GstGLEffects * effects)
 
   glDisable (GL_TEXTURE_1D);
 
-  gst_gl_effects_draw_texture (effects, effects->intexture, TRUE);
+  gst_gl_effects_draw_texture (effects, effects->intexture);
+
+  glDeleteTextures (1, &cross_texture);
 }
 
 static void
@@ -973,11 +1006,14 @@ static void
 gst_gl_effects_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  GstGLEffects *filter = GST_GL_EFFECTS (object);
+  GstGLEffects *effects = GST_GL_EFFECTS (object);
 
   switch (prop_id) {
     case PROP_EFFECT:
-      gst_gl_effects_set_effect (filter, g_value_get_enum (value));
+      gst_gl_effects_set_effect (effects, g_value_get_enum (value));
+      break;
+    case PROP_MIRROR:
+      effects->is_mirrored = g_value_get_boolean (value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -999,50 +1035,26 @@ gst_gl_effects_get_property (GObject * object, guint prop_id,
 }
 
 static void
-gst_gl_effects_draw_texture (GstGLEffects * effects,
-    GLuint tex, gboolean mirrored)
+gst_gl_effects_draw_texture (GstGLEffects * effects, GLuint tex)
 {
   GstGLFilter *filter = GST_GL_FILTER (effects);
-
-  glViewport (0, 0, filter->width, filter->height);
-
-  glMatrixMode (GL_PROJECTION);
-  glLoadIdentity ();
-
-  glMatrixMode (GL_MODELVIEW);
-  glLoadIdentity ();
 
   glActiveTexture (GL_TEXTURE0);
   glEnable (GL_TEXTURE_RECTANGLE_ARB);
   glBindTexture (GL_TEXTURE_RECTANGLE_ARB, tex);
 
-  if (mirrored) {
-    glBegin (GL_QUADS);
+  glBegin (GL_QUADS);
 
-    glTexCoord2f (filter->width, 0);
-    glVertex2f (-1.0, -1.0);
-    glTexCoord2f (0, 0);
-    glVertex2f (1.0, -1.0);
-    glTexCoord2f (0, filter->height);
-    glVertex2f (1.0, 1.0);
-    glTexCoord2f (filter->width, filter->height);
-    glVertex2f (-1.0, 1.0);
+  glTexCoord2f (0.0, 0.0);
+  glVertex2f (-1.0, -1.0);
+  glTexCoord2f (filter->width, 0.0);
+  glVertex2f (1.0, -1.0);
+  glTexCoord2f (filter->width, filter->height);
+  glVertex2f (1.0, 1.0);
+  glTexCoord2f (0.0, filter->height);
+  glVertex2f (-1.0, 1.0);
 
-    glEnd ();
-  } else {
-    glBegin (GL_QUADS);
-
-    glTexCoord2f (0.0, 0.0);
-    glVertex2f (-1.0, -1.0);
-    glTexCoord2f (filter->width, 0.0);
-    glVertex2f (1.0, -1.0);
-    glTexCoord2f (filter->width, filter->height);
-    glVertex2f (1.0, 1.0);
-    glTexCoord2f (0.0, filter->height);
-    glVertex2f (-1.0, 1.0);
-
-    glEnd ();
-  }
+  glEnd ();
 }
 
 static void
@@ -1057,6 +1069,9 @@ gst_gl_effects_set_target (GstGLEffects * effects, GLuint tex)
 
   g_assert (glCheckFramebufferStatusEXT (GL_FRAMEBUFFER_EXT) ==
       GL_FRAMEBUFFER_COMPLETE_EXT);
+
+  glDrawBuffer (GL_COLOR_ATTACHMENT0_EXT);
+  glReadBuffer (GL_COLOR_ATTACHMENT0_EXT);
 }
 
 GLuint
@@ -1101,7 +1116,6 @@ gst_gl_effects_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
     for (i = 0; i < 10; i++) {
       effects->midtexture[i] =
           gst_gl_effects_prepare_texture (filter->width, filter->height);
-      GST_ERROR ("texture %d ready.", effects->midtexture[i]);
     }
     glTexParameteri (GL_TEXTURE_RECTANGLE_ARB, GL_TEXTURE_MIN_FILTER,
         GL_LINEAR);
@@ -1110,7 +1124,27 @@ gst_gl_effects_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
     glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
   }
 
-  effects->effect (effects);
+  glViewport (0, 0, filter->width, filter->height);
+
+  glMatrixMode (GL_PROJECTION);
+  glLoadIdentity ();
+
+  glMatrixMode (GL_MODELVIEW);
+  glLoadIdentity ();
+
+  const double mirrormat[16] = {
+    -1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  };
+
+  if (effects->is_mirrored)
+    glLoadMatrixd (mirrormat);
+  else
+    glLoadIdentity ();
+
+  effects->effect (effects);    // ugly.. maybe changing plugin name to GstGLEffectFactory?
 
   gst_gl_display_unlock (display);
 

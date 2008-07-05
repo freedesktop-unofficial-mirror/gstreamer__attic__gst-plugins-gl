@@ -45,9 +45,10 @@ GstElement *pipeline;
 static gboolean
 expose_cb (GtkWidget * widget, GdkEventExpose * event, gpointer data)
 {
-
-  gst_x_overlay_set_xwindow_id (GST_X_OVERLAY (data),
-      GDK_WINDOW_XWINDOW (widget->window));
+  GstXOverlay *overlay =
+      GST_X_OVERLAY (gst_bin_get_by_interface (GST_BIN (data),
+          GST_TYPE_X_OVERLAY));
+  gst_x_overlay_set_xwindow_id (overlay, GDK_WINDOW_XWINDOW (widget->window));
   return FALSE;
 }
 
@@ -91,6 +92,22 @@ play_cb (GtkWidget * widget, gpointer data)
 }
 
 gboolean
+null_cb (GtkWidget * widget, gpointer data)
+{
+  g_message ("nulling");
+  gst_element_set_state (GST_ELEMENT (data), GST_STATE_NULL);
+  return FALSE;
+}
+
+gboolean
+ready_cb (GtkWidget * widget, gpointer data)
+{
+  g_message ("readying");
+  gst_element_set_state (GST_ELEMENT (data), GST_STATE_READY);
+  return FALSE;
+}
+
+gboolean
 pause_cb (GtkWidget * widget, gpointer data)
 {
   g_message ("pausing");
@@ -109,7 +126,7 @@ main (gint argc, gchar * argv[])
   GtkWidget *screen;
   GtkWidget *vbox, *combo;
   GtkWidget *hbox;
-  GtkWidget *play, *pause;
+  GtkWidget *play, *pause, *null, *ready;
 
   gtk_init (&argc, &argv);
   gst_init (&argc, &argv);
@@ -182,6 +199,19 @@ main (gint argc, gchar * argv[])
   g_signal_connect (G_OBJECT (pause), "clicked",
       G_CALLBACK (pause_cb), pipeline);
 
+  null = gtk_button_new_with_label ("NULL");
+
+  g_signal_connect (G_OBJECT (null), "clicked", G_CALLBACK (null_cb), pipeline);
+
+  ready = gtk_button_new_with_label ("READY");
+
+  g_signal_connect (G_OBJECT (ready), "clicked",
+      G_CALLBACK (ready_cb), pipeline);
+
+
+
+  gtk_box_pack_start (GTK_BOX (hbox), null, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox), ready, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), play, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), pause, TRUE, TRUE, 0);
 
@@ -189,7 +219,7 @@ main (gint argc, gchar * argv[])
 
   gtk_container_add (GTK_CONTAINER (window), vbox);
 
-  g_signal_connect (screen, "expose-event", G_CALLBACK (expose_cb), sink);
+  g_signal_connect (screen, "expose-event", G_CALLBACK (expose_cb), pipeline);
 
   caps = gst_caps_new_simple ("video/x-raw-yuv",
       "width", G_TYPE_INT, 640,

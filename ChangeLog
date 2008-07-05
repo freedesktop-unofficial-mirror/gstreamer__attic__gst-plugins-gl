@@ -1,3 +1,15 @@
+2008-07-05  Filippo Argiolas <filippo dot argiolas at gmail dot com>
+	* gst-libs/gst/gl/glshader.c,h:
+	* gst-libs/gst/gl/glfilter.c:
+	* gst/gl/gstgleffects.c:
+	* gst/gl/gstglfilterexample.c:
+	Use BaseTransform start and stop methods to initialize and cleanup
+	needed GL resources (textures, fbo). Fixes crashes when going to NULL
+	state.
+	Check a shader object to be non-null before deleting it; the GLSL
+	specification (and the ARB one too) say it's not necessary but NVIDIA
+	doesn't care and sets INVALID_VALUE when trying to delete a 0 handle.
+
 2008-07-02  Filippo Argiolas <filippo dot argiolas at gmail dot com>
 	* gst-libs/gst/gl/glshader.c,h:
 	Removed GstGLProgram and let each shader object have its own program

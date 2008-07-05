@@ -57,7 +57,7 @@ gst_gl_shader_finalize (GObject * object)
 {
   GstGLShader *shader;
   GstGLShaderPrivate *priv;
-  GLint status = GL_FALSE;
+/*  GLint status = GL_FALSE; */
 
   shader = GST_GL_SHADER (object);
   priv = shader->priv;
@@ -69,14 +69,13 @@ gst_gl_shader_finalize (GObject * object)
   gst_gl_shader_release (shader);
 
   /* delete program */
-  glDeleteObjectARB (priv->program_handle);
-  GLenum err = glGetError ();
-  g_debug ("error: 0x%x", err);
-
-  glGetObjectParameterivARB (priv->program_handle, GL_OBJECT_DELETE_STATUS_ARB,
-      &status);
-
-  g_debug ("deletion status:%d", status);
+  if (priv->program_handle) {
+    glDeleteObjectARB (priv->program_handle);
+    glGetError ();
+    /* g_debug ("error: 0x%x", err);  */
+    /* glGetObjectParameterivARB(priv->program_handle, GL_OBJECT_DELETE_STATUS_ARB, &status); */
+    /* g_debug ("program deletion status:%s", status == GL_TRUE ? "true" : "false" ); */
+  }
 
   priv->fragment_handle = 0;
   priv->vertex_handle = 0;
@@ -351,6 +350,8 @@ void
 gst_gl_shader_release (GstGLShader * shader)
 {
   GstGLShaderPrivate *priv;
+  /* GLint status; */
+  /* GLenum err = 0; */
 
   g_return_if_fail (GST_GL_IS_SHADER (shader));
 
@@ -361,11 +362,28 @@ gst_gl_shader_release (GstGLShader * shader)
   if (!priv->compiled)
     return;
 
-  glDeleteObjectARB (priv->vertex_handle);
-  glDeleteObjectARB (priv->fragment_handle);
+  if (priv->vertex_handle) {    // not needed but nvidia doesn't care to respect the spec
+    glDeleteObjectARB (priv->vertex_handle);
 
-  glDetachObjectARB (priv->program_handle, priv->vertex_handle);
-  glDetachObjectARB (priv->program_handle, priv->fragment_handle);
+    /* err = glGetError (); */
+    /* g_debug ("error: 0x%x", err); */
+    /* glGetObjectParameterivARB(priv->vertex_handle, GL_OBJECT_DELETE_STATUS_ARB, &status); */
+    /* g_debug ("vertex deletion status:%s", status == GL_TRUE ? "true" : "false" ); */
+  }
+
+  if (priv->fragment_handle) {
+    glDeleteObjectARB (priv->fragment_handle);
+
+    /* err = glGetError (); */
+    /* g_debug ("error: 0x%x", err); */
+    /* glGetObjectParameterivARB(priv->fragment_handle, GL_OBJECT_DELETE_STATUS_ARB, &status); */
+    /* g_debug ("fragment deletion status:%s", status == GL_TRUE ? "true" : "false" ); */
+  }
+
+  if (priv->vertex_handle)
+    glDetachObjectARB (priv->program_handle, priv->vertex_handle);
+  if (priv->fragment_handle)
+    glDetachObjectARB (priv->program_handle, priv->fragment_handle);
 
   priv->compiled = FALSE;
   g_object_notify (G_OBJECT (shader), "compiled");

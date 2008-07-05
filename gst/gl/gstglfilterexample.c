@@ -78,6 +78,9 @@ static void gst_gl_filter_example_get_property (GObject * object, guint prop_id,
 static gboolean gst_gl_filter_example_filter (GstGLFilter * filter,
     GstGLBuffer * inbuf, GstGLBuffer * outbuf);
 
+static gboolean gst_gl_filter_example_start (GstGLFilter * filter);
+static gboolean gst_gl_filter_example_stop (GstGLFilter * filter);
+
 
 static void
 gst_gl_filter_example_base_init (gpointer klass)
@@ -97,6 +100,9 @@ gst_gl_filter_example_class_init (GstGLFilterExampleClass * klass)
   gobject_class->get_property = gst_gl_filter_example_get_property;
 
   GST_GL_FILTER_CLASS (klass)->filter = gst_gl_filter_example_filter;
+  GST_GL_FILTER_CLASS (klass)->start = gst_gl_filter_example_start;
+  GST_GL_FILTER_CLASS (klass)->stop = gst_gl_filter_example_stop;
+
 }
 
 static void
@@ -129,6 +135,18 @@ gst_gl_filter_example_get_property (GObject * object, guint prop_id,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
   }
+}
+
+static gboolean
+gst_gl_filter_example_start (GstGLFilter * filter)
+{
+  return TRUE;
+}
+
+static gboolean
+gst_gl_filter_example_stop (GstGLFilter * filter)
+{
+  return FALSE;
 }
 
 static gboolean

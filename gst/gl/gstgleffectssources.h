@@ -159,6 +159,7 @@ static const gchar *test_fragment_source =
   "uniform sampler2DRect tex;"
   "uniform sampler2DRect base;"
   "void main () {"
+#if 0
   "float kern_gauss[9], kern_laplace[9], kern_emboss[9], kern_mean[9];"
   "kern_gauss = float[9](1.0, 2.0, 1.0, 2.0, 4.0, 2.0, 1.0, 2.0, 1.0);"
   "kern_laplace = float[9](0.0, -1.0, 0.0, -1.0, 4.0, -1.0, 0.0, -1.0, 0.0);"
@@ -204,6 +205,21 @@ static const gchar *test_fragment_source =
   //"gl_FragColor = blend + color;"
   //"gl_FragColor = sum * vec4(smoothstep(1.0, 0.0, dist));"
   //       "gl_FragColor = sum;"
+#endif
+  "  vec2 offset[9];"
+  "  offset = vec2[] ( vec2(-1.0,-1.0), vec2( 0.0,-1.0), vec2( 1.0,-1.0),"
+  "                    vec2(-1.0, 0.0), vec2( 0.0, 0.0), vec2( 1.0, 0.0),"
+  "                    vec2(-1.0, 1.0), vec2( 0.0, 1.0), vec2( 1.0, 1.0) );"
+  "vec2 texturecoord = gl_TexCoord[0].st;"
+  "int i;"
+  "vec4 color = texture2DRect(tex, texturecoord); "
+  "float luma = dot(color, vec3(0.2125, 0.7154, 0.0721));"
+  "float avg = 0.0;"
+  "  for (i = 0; i < 9; i++) { "
+  "      vec4 neighbor = texture2DRect(tex, texturecoord + vec2(offset[i])); "
+  "      avg +=  (neighbor.r + neighbor.g + neighbor.b) / (3.0*9.0);"
+  "  }"
+  "gl_FragColor = smoothstep (0.35, 0.37, avg) * color;"
   "}";
 
 static const gchar *blend_fragment_source = 

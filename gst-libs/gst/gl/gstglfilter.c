@@ -153,13 +153,13 @@ gst_gl_filter_reset (GstGLFilter * filter)
 static gboolean
 gst_gl_filter_start (GstBaseTransform * bt)
 {
-  /*  GstGLFilter *filter;  */
-  /*  GstGLFilterClass *filter_class;  */
+  GstGLFilter *filter;
+  GstGLFilterClass *filter_class;
 
-  /* filter = GST_GL_FILTER (bt); */
-  /* filter_class = GST_GL_FILTER_GET_CLASS (filter); */
+  filter = GST_GL_FILTER (bt);
+  filter_class = GST_GL_FILTER_GET_CLASS (filter);
 
-  /* filter_class->start(filter); */
+  filter_class->start (filter);
 
   return TRUE;
 }
@@ -167,7 +167,13 @@ gst_gl_filter_start (GstBaseTransform * bt)
 static gboolean
 gst_gl_filter_stop (GstBaseTransform * bt)
 {
-  GstGLFilter *filter = GST_GL_FILTER (bt);
+  GstGLFilter *filter;
+  GstGLFilterClass *filter_class;
+
+  filter = GST_GL_FILTER (bt);
+  filter_class = GST_GL_FILTER_GET_CLASS (filter);
+
+  filter_class->stop (filter);
 
   gst_gl_filter_reset (filter);
 

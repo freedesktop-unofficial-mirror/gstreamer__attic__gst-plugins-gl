@@ -1,3 +1,8 @@
+2008-07-07  Sebastian Dröge  <sebastian.droege@collabora.co.uk>
+
+	* tests/examples/Makefile.am:
+	Fix build by adding necessary CFLAGS and LIBS.
+
 2008-07-05  Filippo Argiolas <filippo dot argiolas at gmail dot com>
 	* gst-libs/gst/gl/glshader.c,h:
 	* gst-libs/gst/gl/glfilter.c:

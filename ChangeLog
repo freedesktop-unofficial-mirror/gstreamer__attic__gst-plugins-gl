@@ -1,4 +1,4 @@
-2008-07-08  Filippo Argiolas  <pippo@tux>
+2008-07-08  Filippo Argiolas  <filippo.argiolas@gmail.com>
 
 	* gst/gl/gstgleffects.c:
 	Fix build with iso c90 (mixed code and declarations)

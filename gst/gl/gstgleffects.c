@@ -161,7 +161,7 @@ static gboolean
 gst_gl_effects_stop (GstGLFilter * filter)
 {
   GstGLEffects *effects;
-
+  GLenum err;
   int i;
 
   effects = GST_GL_EFFECTS (filter);
@@ -175,7 +175,7 @@ gst_gl_effects_stop (GstGLFilter * filter)
   g_hash_table_unref (shaderstable);
 
   glDeleteFramebuffersEXT (1, &effects->fbo);
-  GLenum err = glGetError ();
+  err = glGetError ();
   if (err)
     g_warning (G_STRLOC "error: 0x%x", err);
 
@@ -889,7 +889,6 @@ gst_gl_effects_luma_to_curve (GstGLEffects * effects,
   glDeleteTextures (1, &curve_texture);
 }
 
-
 static void
 gst_gl_effects_heat (GstGLEffects * effects)
 {
@@ -1124,6 +1123,13 @@ gst_gl_effects_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
   GstGLDisplay *display = inbuf->display;
   gint i;
 
+  const double mirrormat[16] = {
+    -1.0, 0.0, 0.0, 0.0,
+    0.0, 1.0, 0.0, 0.0,
+    0.0, 0.0, 1.0, 0.0,
+    0.0, 0.0, 0.0, 1.0
+  };
+
   filter = GST_GL_FILTER (bt);
   effects = GST_GL_EFFECTS (filter);
 
@@ -1152,13 +1158,6 @@ gst_gl_effects_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
 
   glMatrixMode (GL_MODELVIEW);
   glLoadIdentity ();
-
-  const double mirrormat[16] = {
-    -1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 1.0, 0.0,
-    0.0, 0.0, 0.0, 1.0
-  };
 
   if (effects->is_mirrored)
     glLoadMatrixd (mirrormat);

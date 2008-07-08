@@ -1,3 +1,11 @@
+2008-07-08  Filippo Argiolas <filippo.argiolas@gmail.com>
+	* gst/gl/gstgleffects.c:
+	* gst/gl/gstgleffectsources.c:
+	* gst/gl/gstgleffectstextures.h:
+	* tests/examples/fxtest.c:
+	Added Sepia and Emboss effect to demonstrate convolution filters,
+	unified	cross, heat and sepia effects into the luma_to_curve shader.
+
 2008-07-07  Sebastian Dröge  <sebastian.droege@collabora.co.uk>
 
 	* tests/examples/Makefile.am:

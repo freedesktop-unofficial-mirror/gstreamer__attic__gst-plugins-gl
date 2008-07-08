@@ -219,7 +219,8 @@ static const gchar *test_fragment_source =
   "      vec4 neighbor = texture2DRect(tex, texturecoord + vec2(offset[i])); "
   "      avg +=  (neighbor.r + neighbor.g + neighbor.b) / (3.0*9.0);"
   "  }"
-  "gl_FragColor = smoothstep (0.35, 0.37, avg) * color;"
+//  "gl_FragColor = smoothstep (0.23, 0.25, avg) *  floor(color * 5.0)/5.0;"
+  "gl_FragColor = smoothstep (0.26, 0.27, avg);"
   "}";
 
 static const gchar *blend_fragment_source = 
@@ -270,36 +271,17 @@ static const gchar *square_fragment_source =
   " gl_FragColor = color * gl_Color;" 
   "}";
 
-static const gchar *heat_fragment_source =
+static const gchar *luma_to_curve_fragment_source =
   "#extension GL_ARB_texture_rectangle : enable\n"
   "uniform sampler2DRect tex;"
-  "uniform sampler1D heat_tex;"
+  "uniform sampler1D curve;"
   "void main () {"
   "vec2 texturecoord = gl_TexCoord[0].st;"
   "vec4 color = texture2DRect (tex, texturecoord); "
   "float luma = dot(color.rgb, vec3(0.2125, 0.7154, 0.0721));"
-  //	  "luma = clamp(luma, 0.0, 0.99);" //is this needed? no if we use GL_NEAREST
-  "color = texture1D(heat_tex, luma);"
-  "color.a = 1.0;"
-  " gl_FragColor = color;" 
-  "}";
-
-static const gchar *cross_fragment_source =
-  "#extension GL_ARB_texture_rectangle : enable\n"
-  "uniform sampler2DRect tex;"
-  "uniform sampler1D cross_tex;"
-  "void main () {"
-  "vec2 texturecoord = gl_TexCoord[0].st;"
-  "vec4 color = texture2DRect (tex, texturecoord); "
-  "float luma = dot(color.rgb, vec3(0.2125, 0.7154, 0.0721));"
-  //	  "luma = clamp(luma, 0.0, 0.99);" //is this needed? same as heat
   "vec4 outcolor;"
-/*  "outcolor.r = texture1D (cross_tex, color.r);"
-  "outcolor.g = texture1D (cross_tex, color.g);"
-  "outcolor.b = texture1D (cross_tex, color.b);"*/
-  "color = texture1D(cross_tex, luma);"
-  "outcolor.a = 1.0;"
-  " gl_FragColor = color;" 
-  "}";
+  "color = texture1D(curve, luma);"
+  "gl_FragColor = color;" 
+  "}";  
 
 #endif

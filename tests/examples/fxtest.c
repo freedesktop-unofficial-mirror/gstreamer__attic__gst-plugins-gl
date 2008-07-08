@@ -182,6 +182,8 @@ main (gint argc, gchar * argv[])
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "mirror");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "heat");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "cross");
+  gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "sepia");
+  gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "emboss");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "test");
 
   g_signal_connect (G_OBJECT (combo), "changed", G_CALLBACK (apply_fx), filter);
@@ -226,6 +228,8 @@ main (gint argc, gchar * argv[])
       "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, 30, 1, NULL);
   g_object_set (G_OBJECT (capsflt), "caps", caps, NULL);
   gst_caps_unref (caps);
+
+  g_object_set (G_OBJECT (filter), "mirror", TRUE, NULL);
 
   ret = gst_element_set_state (pipeline, GST_STATE_PLAYING);
   if (ret == GST_STATE_CHANGE_FAILURE) {

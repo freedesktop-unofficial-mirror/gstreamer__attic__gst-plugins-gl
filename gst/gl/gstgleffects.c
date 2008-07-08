@@ -58,7 +58,9 @@ typedef enum
   GST_GL_EFFECT_SQUARE,
   GST_GL_EFFECT_MIRROR,
   GST_GL_EFFECT_HEAT,
+  GST_GL_EFFECT_SEPIA,
   GST_GL_EFFECT_CROSS,
+  GST_GL_EFFECT_EMBOSS,
   GST_GL_EFFECT_TEST
 } GstGLEffectsEffect;
 
@@ -106,7 +108,9 @@ gst_gl_effects_effect_get_type (void)
     {GST_GL_EFFECT_SQUARE, "Square Effect", "square"},
     {GST_GL_EFFECT_MIRROR, "Mirror Effect", "mirror"},
     {GST_GL_EFFECT_HEAT, "Heat Signature Effect", "heat"},
+    {GST_GL_EFFECT_SEPIA, "Sepia Tone Effect", "sepia"},
     {GST_GL_EFFECT_CROSS, "Cross Processing Effect", "cross"},
+    {GST_GL_EFFECT_EMBOSS, "Emboss Convolution Effect", "emboss"},
     {GST_GL_EFFECT_TEST, "Test Effect", "test"},
     {0, NULL, NULL}
   };
@@ -826,17 +830,18 @@ gst_gl_effects_test (GstGLEffects * effects)
 }
 
 static void
-gst_gl_effects_heat (GstGLEffects * effects)
+gst_gl_effects_luma_to_curve (GstGLEffects * effects,
+    GstGLEffectsTexture1D curve)
 {
   GstGLShader *shader;
   gboolean is_compiled = FALSE;
-  GLuint heat_texture;
+  GLuint curve_texture;
 
-  shader = g_hash_table_lookup (shaderstable, "heat0");
+  shader = g_hash_table_lookup (shaderstable, "lumamap0");
 
   if (!shader) {
     shader = gst_gl_shader_new ();
-    g_hash_table_insert (shaderstable, "heat0", shader);
+    g_hash_table_insert (shaderstable, "lumamap0", shader);
   }
 
   gst_gl_effects_set_target (effects, effects->outtexture);
@@ -846,7 +851,7 @@ gst_gl_effects_heat (GstGLEffects * effects)
   if (!is_compiled) {
     GError *error = NULL;
 
-    gst_gl_shader_set_fragment_source (shader, heat_fragment_source);
+    gst_gl_shader_set_fragment_source (shader, luma_to_curve_fragment_source);
     gst_gl_shader_compile (shader, &error);
     if (error) {
       g_error ("%s", error->message);   //GST_ERROR
@@ -859,12 +864,12 @@ gst_gl_effects_heat (GstGLEffects * effects)
 
   gst_gl_shader_use (shader);
 
-  glGenTextures (1, &heat_texture);
+  glGenTextures (1, &curve_texture);
   glEnable (GL_TEXTURE_1D);
-  glBindTexture (GL_TEXTURE_1D, heat_texture);
+  glBindTexture (GL_TEXTURE_1D, curve_texture);
 
   glActiveTexture (GL_TEXTURE5);
-  gst_gl_shader_set_uniform_1i (shader, "heat_tex", 5);
+  gst_gl_shader_set_uniform_1i (shader, "curve", 5);
 
   /* this parameters are needed to have a right, predictable, mapping */
 
@@ -873,41 +878,63 @@ gst_gl_effects_heat (GstGLEffects * effects)
   glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
   glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 
-  glTexImage1D (GL_TEXTURE_1D,
-      0,
-      heat_curve.bytes_per_pixel,
-      heat_curve.width, 0, GL_RGB, GL_UNSIGNED_BYTE, heat_curve.pixel_data);
+  /* FIXME: load pixels only once */
+  glTexImage1D (GL_TEXTURE_1D, 0, curve.bytes_per_pixel,
+      curve.width, 0, GL_RGB, GL_UNSIGNED_BYTE, curve.pixel_data);
 
   glDisable (GL_TEXTURE_1D);
 
   gst_gl_effects_draw_texture (effects, effects->intexture);
 
-  glDeleteTextures (1, &heat_texture);
+  glDeleteTextures (1, &curve_texture);
+}
+
+
+static void
+gst_gl_effects_heat (GstGLEffects * effects)
+{
+  gst_gl_effects_luma_to_curve (effects, heat_curve);
 }
 
 static void
 gst_gl_effects_cross (GstGLEffects * effects)
 {
-  GstGLShader *shader;
-  gboolean is_compiled = FALSE;
-  GLuint cross_texture;
+  gst_gl_effects_luma_to_curve (effects, cross_curve);
+}
 
-  shader = g_hash_table_lookup (shaderstable, "cross0");
+static void
+gst_gl_effects_sepia (GstGLEffects * effects)
+{
+  gst_gl_effects_luma_to_curve (effects, sepia_curve);
+}
 
-  if (!shader) {
-    shader = gst_gl_shader_new ();
-    g_hash_table_insert (shaderstable, "cross0", shader);
+static void
+gst_gl_effects_emboss (GstGLEffects * effects)
+{
+  GstGLShader *shader0;
+  gboolean is_compiled;
+  gfloat kernel[9] = { 2.0, 0.0, 0.0,
+    0.0, -1.0, 0.0,
+    0.0, 0.0, -1.0
+  };
+
+
+  shader0 = g_hash_table_lookup (shaderstable, "emboss0");
+
+  if (!shader0) {
+    shader0 = gst_gl_shader_new ();
+    g_hash_table_insert (shaderstable, "emboss0", shader0);
   }
 
   gst_gl_effects_set_target (effects, effects->outtexture);
 
-  g_object_get (G_OBJECT (shader), "compiled", &is_compiled, NULL);
+  g_object_get (G_OBJECT (shader0), "compiled", &is_compiled, NULL);
 
   if (!is_compiled) {
     GError *error = NULL;
 
-    gst_gl_shader_set_fragment_source (shader, cross_fragment_source);
-    gst_gl_shader_compile (shader, &error);
+    gst_gl_shader_set_fragment_source (shader0, convolution_fragment_source);
+    gst_gl_shader_compile (shader0, &error);
     if (error) {
       g_error ("%s", error->message);   //GST_ERROR
       g_error_free (error);
@@ -917,32 +944,20 @@ gst_gl_effects_cross (GstGLEffects * effects)
     }
   }
 
-  gst_gl_shader_use (shader);
+  gst_gl_shader_use (shader0);
 
-  glGenTextures (1, &cross_texture);
-  glEnable (GL_TEXTURE_1D);
-  glBindTexture (GL_TEXTURE_1D, cross_texture);
+  glActiveTexture (GL_TEXTURE0);
+  glEnable (GL_TEXTURE_RECTANGLE_ARB);
+  glBindTexture (GL_TEXTURE_RECTANGLE_ARB, effects->intexture);
+  glDisable (GL_TEXTURE_RECTANGLE_ARB);
 
-  glActiveTexture (GL_TEXTURE5);
-  gst_gl_shader_set_uniform_1i (shader, "cross_tex", 5);
+  gst_gl_shader_set_uniform_1i (shader0, "tex", 0);
 
-  /* this parameters are needed to have a right, predictable, mapping */
-
-  glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-  glTexParameteri (GL_TEXTURE_1D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-
-  glTexImage1D (GL_TEXTURE_1D,
-      0,
-      cross_curve.bytes_per_pixel,
-      cross_curve.width, 0, GL_RGB, GL_UNSIGNED_BYTE, cross_curve.pixel_data);
-
-  glDisable (GL_TEXTURE_1D);
+  gst_gl_shader_set_uniform_1fv (shader0, "kernel", 9, kernel);
+  gst_gl_shader_set_uniform_1f (shader0, "norm_const", 1.0);
+  gst_gl_shader_set_uniform_1f (shader0, "norm_offset", 0.5);
 
   gst_gl_effects_draw_texture (effects, effects->intexture);
-
-  glDeleteTextures (1, &cross_texture);
 }
 
 static void
@@ -986,8 +1001,14 @@ gst_gl_effects_set_effect (GstGLEffects * filter, gint effect_type)
     case GST_GL_EFFECT_HEAT:
       filter->effect = (GstGLEffectProcessFunc) gst_gl_effects_heat;
       break;
+    case GST_GL_EFFECT_SEPIA:
+      filter->effect = (GstGLEffectProcessFunc) gst_gl_effects_sepia;
+      break;
     case GST_GL_EFFECT_CROSS:
       filter->effect = (GstGLEffectProcessFunc) gst_gl_effects_cross;
+      break;
+    case GST_GL_EFFECT_EMBOSS:
+      filter->effect = (GstGLEffectProcessFunc) gst_gl_effects_emboss;
       break;
     case GST_GL_EFFECT_TEST:
       filter->effect = (GstGLEffectProcessFunc) gst_gl_effects_test;

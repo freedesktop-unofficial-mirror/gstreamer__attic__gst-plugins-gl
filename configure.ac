@@ -195,6 +195,17 @@ AC_SUBST(GTK_CFLAGS)
 AC_SUBST(HAVE_GTK)
 AM_CONDITIONAL(HAVE_GTK, test "x$HAVE_GTK" = "xyes")
 
+dnl Use gdk-pixbuf for loading background (chromakey) in gleffects
+dnl required until it will be done with a request pad
+PKG_CHECK_MODULES(GDK_PIXBUF, gdk-pixbuf-2.0, HAVE_GDK_PIXBUF=yes, HAVE_GDK_PIXBUF=no)
+AC_SUBST(GDK_PIXBUF_LIBS)
+AC_SUBST(GDK_PIXBUF_CFLAGS)
+AC_SUBST(HAVE_GDK_PIXBUF)
+if test "x$HAVE_GDK_PIXBUF" != "xyes"
+then
+  AC_ERROR([gdk-pixbuf-2.0 is required])
+fi
+
 dnl OpenGL is required
 translit(dnm, m, l) AM_CONDITIONAL(USE_OPENGL, true)
 AG_GST_CHECK_X

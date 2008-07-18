@@ -30,7 +30,7 @@ static const gchar *mirror_fragment_source =
   "vec2 tex_size = vec2 (width, height);"
   "vec2 texturecoord = gl_TexCoord[0].xy;"
   "vec2 normcoord;"
-  "normcoord = texturecoord / tex_size - 1.0; "
+  "normcoord = texturecoord / tex_size - 1.0;"
   "normcoord.x *= sign (normcoord.x);"
   "texturecoord = (normcoord + 1.0) * tex_size;"
   "vec4 color = texture2DRect (tex, texturecoord); "
@@ -104,7 +104,7 @@ static const gchar *twirl_fragment_source =
   "normcoord = texturecoord / tex_size - 1.0;"
   "float r =  length (normcoord);"
   "float phi = atan (normcoord.y, normcoord.x);"
-  "phi += (1.0 - smoothstep (-0.6, 0.6, r)) * 4.2;"
+  "phi += (1.0 - smoothstep (-0.6, 0.6, r)) * 4.8;"
   "normcoord.x = r * cos(phi);"
   "normcoord.y = r * sin(phi);"
   "texturecoord = (normcoord + 1.0) * tex_size;"
@@ -131,27 +131,55 @@ static const gchar *squeeze_fragment_source =
   "}";
 
 static const gchar *convolution_fragment_source = 
+  "#extension GL_ARB_texture_rectangle : enable\n"
+  "uniform sampler2DRect tex;"
+  "uniform float norm_const;"
+  "uniform float norm_offset;"
+  "uniform float kernel[9];"
+  "void main () {"
+  "  vec2 offset[9];"
+  "  offset = vec2[] ( vec2(-1.0,-1.0), vec2( 0.0,-1.0), vec2( 1.0,-1.0),"
+  "                    vec2(-1.0, 0.0), vec2( 0.0, 0.0), vec2( 1.0, 0.0),"
+  "                    vec2(-1.0, 1.0), vec2( 0.0, 1.0), vec2( 1.0, 1.0) );"
+  "  vec2 texturecoord = gl_TexCoord[0].st;"
+  "  int i;"
+  "  vec4 sum = vec4 (0.0);"
+  "  for (i = 0; i < 9; i++) { "
+  "    if (kernel[i] != 0.0) {"
+  "      vec4 neighbor = texture2DRect(tex, texturecoord + vec2(offset[i])); "
+  "      sum += neighbor * kernel[i]/norm_const; "
+  "    }"
+  "  }"
+  "  gl_FragColor = sum + norm_offset;"
+  "}";
+
+#if 0
+/* FIXME: too much texture accesses */
+static const gchar *large_convolution_fragment_source = 
 "#extension GL_ARB_texture_rectangle : enable\n"
 "uniform sampler2DRect tex;"
 "uniform float norm_const;"
 "uniform float norm_offset;"
-"uniform float kernel[9];"
+"uniform float kernel[25];"
 "void main () {"
-"  vec2 offset[9];"
-"  offset = vec2[] ( vec2(-1.0,-1.0), vec2( 0.0,-1.0), vec2( 1.0,-1.0),"
-"                    vec2(-1.0, 0.0), vec2( 0.0, 0.0), vec2( 1.0, 0.0),"
-"                    vec2(-1.0, 1.0), vec2( 0.0, 1.0), vec2( 1.0, 1.0) );"
-  "vec2 texturecoord = gl_TexCoord[0].st;"
-  "int i;"
-  "vec4 sum = vec4 (0.0);"
-"  for (i = 0; i < 9; i++) { "
+"  vec2 offset[25];"
+"  offset = vec2[] ( vec2(-2.0,-2.0), vec2(-1.0,-2.0), vec2( 0.0,-2.0), vec2( 1.0,-2.0), vec2( 2.0,-2.0),"
+"                    vec2(-2.0,-1.0), vec2(-1.0,-1.0), vec2( 0.0,-1.0), vec2( 1.0,-1.0), vec2( 2.0,-1.0),"
+"                    vec2(-2.0, 0.0), vec2(-1.0, 0.0), vec2( 0.0, 0.0), vec2( 1.0, 0.0), vec2( 2.0, 0.0),"
+"                    vec2(-2.0, 1.0), vec2(-1.0, 1.0), vec2( 0.0, 1.0), vec2( 1.0, 1.0), vec2( 2.0, 1.0),"
+"                    vec2(-2.0, 2.0), vec2(-1.0, 2.0), vec2( 0.0, 2.0), vec2( 1.0, 2.0), vec2( 2.0, 2.0) );"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 sum = vec4 (0.0);"
+"  for (i = 0; i < 25; i++) { "
 "    if (kernel[i] != 0) {"
 "      vec4 neighbor = texture2DRect(tex, texturecoord + vec2(offset[i])); "
-  "      sum += neighbor * kernel[i]/norm_const; "
-  "    }"
+"        sum += neighbor * kernel[i]/norm_const; "
+"      }"
 "  }"
 "  gl_FragColor = sum + norm_offset;"
 "}";
+#endif
 
 /* Junk/Test Effect */
 static const gchar *test_fragment_source =
@@ -220,7 +248,7 @@ static const gchar *test_fragment_source =
   "      avg +=  (neighbor.r + neighbor.g + neighbor.b) / (3.0*9.0);"
   "  }"
 //  "gl_FragColor = smoothstep (0.23, 0.25, avg) *  floor(color * 5.0)/5.0;"
-  "gl_FragColor = smoothstep (0.26, 0.27, avg);"
+  "gl_FragColor = smoothstep (0.39, 0.40, avg);"
   "}";
 
 static const gchar *blend_fragment_source = 
@@ -231,7 +259,7 @@ static const gchar *blend_fragment_source =
   "vec4 basecolor = texture2DRect (base, gl_TexCoord[0].st);"
   "vec4 blendcolor = texture2DRect (blend, gl_TexCoord[0].st);"
   "vec4 white = vec4(1.0);"
-  "gl_FragColor = blendcolor * basecolor;"
+  "gl_FragColor = basecolor + blendcolor / 3.5;"
   "}";
 
 
@@ -282,6 +310,199 @@ static const gchar *luma_to_curve_fragment_source =
   "vec4 outcolor;"
   "color = texture1D(curve, luma);"
   "gl_FragColor = color;" 
-  "}";  
+  "}";
+
+
+static const gchar *luma_threshold_fragment_source =
+  "#extension GL_ARB_texture_rectangle : enable\n"
+  "uniform sampler2DRect tex;"
+  "void main () {"
+  "vec2 texturecoord = gl_TexCoord[0].st;"
+  "int i;"
+  "vec4 color = texture2DRect(tex, texturecoord); "
+  "float luma = dot(color, vec3(0.2125, 0.7154, 0.0721));"
+// "gl_FragColor = step (0.4, luma);"
+  "gl_FragColor = smoothstep (0.30, 0.50, luma);"
+  "}";
+
+static const gchar *hconv9_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"uniform float norm_const;"
+"uniform float norm_offset;"
+"uniform float kernel[9];"
+"void main () {"
+"  float offset[9];"
+"  offset = float[] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 sum = vec4 (0.0);"
+"  for (i = 0; i < 9; i++) { "
+"    if (kernel[i] != 0) {"
+"        vec4 neighbor = texture2DRect(tex, vec2(texturecoord.s+offset[i], texturecoord.t)); "
+"        sum += neighbor * kernel[i]/norm_const; "
+"      }"
+"  }"
+"  gl_FragColor = sum + norm_offset;"
+"}";
+
+static const gchar *vconv9_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"uniform float norm_const;"
+"uniform float norm_offset;"
+"uniform float kernel[9];"
+"void main () {"
+"  float offset[9];"
+"  offset = float[] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 sum = vec4 (0.0);"
+"  for (i = 0; i < 9; i++) { "
+"    if (kernel[i] != 0) {"
+"        vec4 neighbor = texture2DRect(tex, vec2(texturecoord.s, texturecoord.t+offset[i])); "
+"        sum += neighbor * kernel[i]/norm_const; "
+"      }"
+"  }"
+"  gl_FragColor = sum + norm_offset;"
+"}";
+
+#if 0
+static const gchar *hconv5_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"uniform float norm_const;"
+"uniform float norm_offset;"
+"uniform float kernel[5];"
+"void main () {"
+"  float offset[5];"
+"  offset = float[] (-2.0, -1.0, 0.0, 1.0, 2.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 sum = vec4 (0.0);"
+"  for (i = 0; i < 5; i++) { "
+"    if (kernel[i] != 0) {"
+"        vec4 neighbor = texture2DRect(tex, vec2(texturecoord.s+offset[i], texturecoord.t)); "
+"        sum += neighbor * kernel[i]/norm_const; "
+"      }"
+"  }"
+"  gl_FragColor = sum + norm_offset;"
+"}";
+
+static const gchar *vconv5_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"uniform float norm_const;"
+"uniform float norm_offset;"
+"uniform float kernel[5];"
+"void main () {"
+"  float offset[5];"
+"  offset = float[] (-2.0, -1.0, 0.0, 1.0, 2.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 sum = vec4 (0.0);"
+"  for (i = 0; i < 5; i++) { "
+"    if (kernel[i] != 0) {"
+"        vec4 neighbor = texture2DRect(tex, vec2(texturecoord.s, texturecoord.t+offset[i])); "
+"        sum += neighbor * kernel[i]/norm_const; "
+"      }"
+"  }"
+"  gl_FragColor = sum + norm_offset;"
+"}";
+
+static const gchar *vmedian3_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"float find_median (float a, float b, float c)"
+"{"
+" float median;"
+"  if( a < b ) {"
+"    if( b < c) median = b;"
+"    else median = max(a,c);"
+"  }"
+"  else {"
+"    if( a < c) median = a;"
+"    else median = max(b,c);"
+"  }"
+"  return median;"
+"}"
+"void main () {"
+"  float offset[3];"
+"  offset = float[] (-1.0, 0.0, 1.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 neighbor[3];"
+"  for (i = 0; i < 3; i++) { "
+"    neighbor[i] = texture2DRect(tex, vec2(texturecoord.s, texturecoord.t+offset[i])); "
+"  }"
+"  gl_FragColor.r = find_median (neighbor[0].r, neighbor[1].r, neighbor[2].r);" 
+"  gl_FragColor.g = find_median (neighbor[0].g, neighbor[1].g, neighbor[2].g);" 
+"  gl_FragColor.b = find_median (neighbor[0].b, neighbor[1].b, neighbor[2].b);" 
+"  gl_FragColor.a = neighbor[1].a;"
+"}";
+
+static const gchar *hmedian3_fragment_source = 
+"#extension GL_ARB_texture_rectangle : enable\n"
+"uniform sampler2DRect tex;"
+"float find_median (float a, float b, float c)"
+"{"
+"float median;"
+"  if( a < b ) {"
+"    if( b < c) median = b;"
+"    else median = max(a,c);"
+"  }"
+"  else {"
+"    if( a < c) median = a;"
+"    else median = max(b,c);"
+"  }"
+"  return median;"
+"}"
+"void main () {"
+"  float offset[3];"
+"  offset = float[] (-1.0, 0.0, 1.0);"
+"  vec2 texturecoord = gl_TexCoord[0].st;"
+"  int i;"
+"  vec4 neighbor[3];"
+"  for (i = 0; i < 3; i++) { "
+"    neighbor[i] = texture2DRect(tex, vec2(texturecoord.s+offset[i], texturecoord.t)); "
+"  }"
+"  gl_FragColor.r = find_median (neighbor[0].r, neighbor[1].r, neighbor[2].r);" 
+"  gl_FragColor.g = find_median (neighbor[0].g, neighbor[1].g, neighbor[2].g);" 
+"  gl_FragColor.b = find_median (neighbor[0].b, neighbor[1].b, neighbor[2].b);" 
+"  gl_FragColor.a = neighbor[1].a;"
+"}";
+#endif
+
+
+static const gchar *difference_matte_fragment_source =
+  "#extension GL_ARB_texture_rectangle : enable\n"
+  "uniform sampler2DRect front;"
+  "uniform sampler2DRect back;"
+  "void main () {"
+  "vec4 frontcolor = texture2DRect (front, gl_TexCoord[0].st);"
+  "vec4 backcolor = texture2DRect (back, gl_TexCoord[0].st);"
+//  "vec4 newcolor = texture2DRect (new, gl_TexCoord[0].st);"
+  "vec4 white = vec4(1.0);"
+//  "gl_FragColor = (length(frontcolor - backcolor) > 0.2) ? frontcolor : white;"
+//  "float alpha = smoothstep (0.09, 0.12, length (frontcolor - backcolor));"
+//  "gl_FragColor = (1 - alpha) * newcolor + alpha * frontcolor;"
+  "gl_FragColor = step (0.12, length (frontcolor - backcolor));"
+//  "gl_FragColor = smoothstep (0.09, 0.12, length (frontcolor - backcolor));"
+  "}";
+
+static const gchar *interpolate_fragment_source = 
+  "#extension GL_ARB_texture_rectangle : enable\n"
+  "uniform sampler2DRect front;"
+  "uniform sampler2DRect back;"
+  "uniform sampler2DRect alpha;"
+  "void main () {"
+  "vec4 frontcolor = texture2DRect (front, gl_TexCoord[0].st);"
+  "vec4 backcolor = texture2DRect (back, gl_TexCoord[0].st);"
+  "vec4 alphacolor = texture2DRect (alpha, gl_TexCoord[0].st);"
+  "vec4 white = vec4(1.0);"
+//  "gl_FragColor = alphacolor;" //debug
+//  "gl_FragColor = (1 - alphacolor) * backcolor + alphacolor * frontcolor;" 
+  "gl_FragColor = backcolor + (1 - backcolor.a) * frontcolor;"
+  "}";
 
 #endif

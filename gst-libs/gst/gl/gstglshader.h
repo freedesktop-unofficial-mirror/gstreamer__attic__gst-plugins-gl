@@ -42,6 +42,11 @@ typedef enum {
   GST_GL_SHADER_ERROR_PROGRAM
 } GstGLShaderError;
 
+typedef enum {
+  GST_GL_SHADER_FRAGMENT_SOURCE,
+  GST_GL_SHADER_VERTEX_SOURCE
+} GstGLShaderSourceType;
+
 typedef struct _GstGLShader        GstGLShader;
 typedef struct _GstGLShaderPrivate GstGLShaderPrivate;
 typedef struct _GstGLShaderClass   GstGLShaderClass;
@@ -77,6 +82,7 @@ void gst_gl_shader_set_active (GstGLShader *shader,
 gboolean gst_gl_shader_is_compiled (GstGLShader *shader);
 
 gboolean gst_gl_shader_compile (GstGLShader *shader, GError **error);
+gboolean gst_gl_shader_compile_and_check (GstGLShader *shader, const gchar *source, GstGLShaderSourceType type);
 void gst_gl_shader_release (GstGLShader *shader);
 void gst_gl_shader_use (GstGLShader *shader);
 

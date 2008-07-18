@@ -148,7 +148,7 @@ gst_gl_shader_class_init (GstGLShaderClass * klass)
           "GLSL Vertex Shader source code", NULL, G_PARAM_READWRITE));
   g_object_class_install_property (obj_class,
       PROP_FRAGMENT_SRC,
-      g_param_spec_string ("fragmen-src",
+      g_param_spec_string ("fragment-src",
           "Fragment Source",
           "GLSL Fragment Shader source code", NULL, G_PARAM_READWRITE));
   g_object_class_install_property (obj_class,
@@ -289,7 +289,7 @@ gst_gl_shader_compile (GstGLShader * shader, GError ** error)
       priv->compiled = FALSE;
       return priv->compiled;
     } else if (len > 1) {
-      g_debug ("%s\n", info_buffer);
+      g_debug ("\n%s\n", info_buffer);
     }
     glAttachObjectARB (priv->program_handle, priv->vertex_handle);
   }
@@ -317,7 +317,7 @@ gst_gl_shader_compile (GstGLShader * shader, GError ** error)
       priv->compiled = FALSE;
       return priv->compiled;
     } else if (len > 1) {
-      g_debug ("%s\n", info_buffer);
+      g_debug ("\n%s\n", info_buffer);
     }
     glAttachObjectARB (priv->program_handle, priv->fragment_handle);
   }
@@ -337,7 +337,7 @@ gst_gl_shader_compile (GstGLShader * shader, GError ** error)
     priv->compiled = FALSE;
     return priv->compiled;
   } else if (len > 1) {
-    g_debug ("%s\n", info_buffer);
+    g_debug ("\n%s\n", info_buffer);
   }
   /* success! */
   priv->compiled = TRUE;
@@ -406,6 +406,41 @@ gst_gl_shader_use (GstGLShader * shader)
   glUseProgramObjectARB (priv->program_handle);
 
   return;
+}
+
+gboolean
+gst_gl_shader_compile_and_check (GstGLShader * shader,
+    const gchar * source, GstGLShaderSourceType type)
+{
+  gboolean is_compiled = FALSE;
+
+  g_object_get (G_OBJECT (shader), "compiled", &is_compiled, NULL);
+
+  if (!is_compiled) {
+    GError *error = NULL;
+
+    switch (type) {
+      case GST_GL_SHADER_FRAGMENT_SOURCE:
+        gst_gl_shader_set_fragment_source (shader, source);
+        break;
+      case GST_GL_SHADER_VERTEX_SOURCE:
+        gst_gl_shader_set_vertex_source (shader, source);
+        break;
+      default:
+        g_assert_not_reached ();
+        break;
+    }
+
+    gst_gl_shader_compile (shader, &error);
+    if (error) {
+      g_warning ("%s", error->message);
+      g_error_free (error);
+      error = NULL;
+      gst_gl_shader_use (NULL);
+      return FALSE;
+    }
+  }
+  return TRUE;
 }
 
 void

@@ -1,46 +1,21 @@
 #include <gst/gst.h>
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include <gdk/gdkx.h>
 #include <gst/interfaces/xoverlay.h>
 
 
 GstElement *pipeline;
+struct _SourceData
+{
+  gpointer data;
+  gpointer nick;
+  gpointer value;
+  gint cnt;
+};
 
-/* static void */
-/* event_loop (GstElement * pipe) */
-/* { */
-/*   GstBus *bus; */
-/*   GstMessage *message = NULL; */
-
-/*   bus = gst_element_get_bus (GST_ELEMENT (pipe)); */
-
-/*   while (TRUE) { */
-/*     message = gst_bus_poll (bus, GST_MESSAGE_ANY, -1); */
-/*     g_assert (message != NULL); */
-
-/*     switch (message->type) { */
-/*       case GST_MESSAGE_EOS: */
-/*         gst_message_unref (message); */
-/*         return; */
-/*       case GST_MESSAGE_WARNING: */
-/*       case GST_MESSAGE_ERROR:{ */
-/*         GError *gerror; */
-/*         gchar *debug; */
-
-/*         gst_message_parse_error (message, &gerror, &debug); */
-/*         gst_object_default_error (GST_MESSAGE_SRC (message), gerror, debug); */
-/*         gst_message_unref (message); */
-/*         g_error_free (gerror); */
-/*         g_free (debug); */
-/*         return; */
-/*       } */
-/*       default: */
-/*         gst_message_unref (message); */
-/*         break; */
-/*     } */
-/*   } */
-/* } */
+typedef struct _SourceData SourceData;
 
 static gboolean
 expose_cb (GtkWidget * widget, GdkEventExpose * event, gpointer data)
@@ -115,6 +90,40 @@ pause_cb (GtkWidget * widget, gpointer data)
   return FALSE;
 }
 
+static gboolean
+set_background_delayed (gpointer data)
+{
+  SourceData *sdata = (SourceData *) data;
+  g_print ("%d\n", 4 - sdata->cnt);
+  if (sdata->cnt < 4) {
+    sdata->cnt++;
+    return TRUE;
+  }
+  g_object_set (G_OBJECT (sdata->data), sdata->nick, sdata->value, NULL);
+  return FALSE;
+}
+
+static void
+on_drag_data_received (GtkWidget * widget,
+    GdkDragContext * context, int x, int y,
+    GtkSelectionData * seldata, guint inf, guint time, SourceData * userdata)
+{
+  GdkPixbufFormat *format;
+  gchar **uris = gtk_selection_data_get_uris (seldata);
+  gchar *filename = g_filename_from_uri (uris[0], NULL, NULL);
+  g_return_if_fail (filename != NULL);
+  format = gdk_pixbuf_get_file_info (filename, NULL, NULL);
+  g_return_if_fail (format);
+  g_print ("received %s image: %s\n", filename,
+      gdk_pixbuf_format_get_name (format));
+  userdata->cnt = 0;
+  userdata->nick = "background";
+  userdata->value = g_strdup (filename);
+  g_timeout_add_seconds (1, set_background_delayed, userdata);
+  g_free (filename);
+}
+
+
 gint
 main (gint argc, gchar * argv[])
 {
@@ -127,6 +136,7 @@ main (gint argc, gchar * argv[])
   GtkWidget *vbox, *combo;
   GtkWidget *hbox;
   GtkWidget *play, *pause, *null, *ready;
+  SourceData *sdata;
 
   gtk_init (&argc, &argv);
   gst_init (&argc, &argv);
@@ -184,6 +194,8 @@ main (gint argc, gchar * argv[])
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "cross");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "sepia");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "emboss");
+  gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "glow");
+  gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "background");
   gtk_combo_box_append_text (GTK_COMBO_BOX (combo), "test");
 
   g_signal_connect (G_OBJECT (combo), "changed", G_CALLBACK (apply_fx), filter);
@@ -210,8 +222,6 @@ main (gint argc, gchar * argv[])
   g_signal_connect (G_OBJECT (ready), "clicked",
       G_CALLBACK (ready_cb), pipeline);
 
-
-
   gtk_box_pack_start (GTK_BOX (hbox), null, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), ready, TRUE, TRUE, 0);
   gtk_box_pack_start (GTK_BOX (hbox), play, TRUE, TRUE, 0);
@@ -223,13 +233,24 @@ main (gint argc, gchar * argv[])
 
   g_signal_connect (screen, "expose-event", G_CALLBACK (expose_cb), pipeline);
 
+  gtk_drag_dest_set (screen, GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY);
+  gtk_drag_dest_add_uri_targets (screen);
+
+  sdata = g_new0 (SourceData, 1);
+  sdata->data = filter;
+
+  g_signal_connect (screen, "drag-data-received",
+      G_CALLBACK (on_drag_data_received), sdata);
+
+
   caps = gst_caps_new_simple ("video/x-raw-yuv",
       "width", G_TYPE_INT, 640,
       "height", G_TYPE_INT, 480, "framerate", GST_TYPE_FRACTION, 30, 1, NULL);
   g_object_set (G_OBJECT (capsflt), "caps", caps, NULL);
   gst_caps_unref (caps);
 
-  g_object_set (G_OBJECT (filter), "mirror", TRUE, NULL);
+//     g_object_set (G_OBJECT (src), "pattern", 10, NULL);
+  g_object_set (G_OBJECT (filter), "horizontal-swap", TRUE, NULL);
 
   ret = gst_element_set_state (pipeline, GST_STATE_PLAYING);
   if (ret == GST_STATE_CHANGE_FAILURE) {

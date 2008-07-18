@@ -1,3 +1,23 @@
+2008-07-16  Filippo Argiolas <filippo.argiolas@gmail.com>
+
+	* gst-libs/gst/gl/gstglshader.c:
+	* gst-libs/gst/gl/gstglshader.h:
+	Add compile_and_check convenience function
+	* gst/gl/gstgleffects.c:
+	* gst/gl/gstgleffectssources.h:
+	Fix init and cleanup resources. Now make check runs fine with
+	gleffects.
+	Add Glow and Difference Matte effects.
+	Add separable convolution and interpolation shaders.
+	* configure.ac:
+	* gst/gl/Makefile.am:
+	Add check for GDK_PIXBUF needed at the moment for the Difference Matte
+	effect, maybe a request pad would be better to load the background
+	picture.
+	* tests/examples/Makefile.am:
+	* tests/examples/fxtest.c:
+	Add drag-n-drop support for the background picture
+
 2008-07-11  David Schleef  <ds@schleef.org>
 
 	* configure.ac: Add AG_GST_ARG_WITH_PLUGINS

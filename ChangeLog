@@ -1,3 +1,9 @@
+2008-07-27  Filippo Argiolas <filippo.argiolas@gmail.com>
+	* gst/gl/gstglfiltersobel.c:
+	* gst/gl/gstglfilterblur.c:
+	Add two minimalist filters to demonstrate how single e multiple step
+	rendering work. Useful for merging julien's branch.
+
 2008-07-16  Filippo Argiolas <filippo.argiolas@gmail.com>
 
 	* gst-libs/gst/gl/gstglshader.c:

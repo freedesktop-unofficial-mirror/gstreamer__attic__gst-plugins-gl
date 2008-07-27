@@ -20,6 +20,8 @@ libgstopengl_la_SOURCES = \
 	gstgleffectssources.h \
 	gstgleffectstextures.h \
 	gstglfilterexample.c \
+	gstglfiltersobel.c \
+	gstglfilterblur.c \
 	gstglconvert.c
 # check order of CFLAGS and LIBS, shouldn't the order be the other way around
 # (like in AM_CFLAGS)?

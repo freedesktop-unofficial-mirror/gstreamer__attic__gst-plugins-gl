@@ -57,6 +57,7 @@ struct _GstGLFilterBlur
   GstGLShader *shader1;
 };
 
+/* horizontal convolution */
 static const gchar *hconv9_fragment_source = 
 "#extension GL_ARB_texture_rectangle : enable\n"
 "uniform sampler2DRect tex;"
@@ -64,8 +65,7 @@ static const gchar *hconv9_fragment_source =
 "uniform float norm_offset;"
 "uniform float kernel[9];"
 "void main () {"
-"  float offset[9];"
-"  offset = float[] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
+"  float offset[9] = float[9] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
 "  vec2 texturecoord = gl_TexCoord[0].st;"
 "  int i;"
 "  vec4 sum = vec4 (0.0);"
@@ -78,6 +78,7 @@ static const gchar *hconv9_fragment_source =
 "  gl_FragColor = sum + norm_offset;"
 "}";
 
+/* vertical convolution */
 static const gchar *vconv9_fragment_source = 
 "#extension GL_ARB_texture_rectangle : enable\n"
 "uniform sampler2DRect tex;"
@@ -85,8 +86,7 @@ static const gchar *vconv9_fragment_source =
 "uniform float norm_offset;"
 "uniform float kernel[9];"
 "void main () {"
-"  float offset[9];"
-"  offset = float[] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
+"  float offset[9] = float[9] (-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0);"
 "  vec2 texturecoord = gl_TexCoord[0].st;"
 "  int i;"
 "  vec4 sum = vec4 (0.0);"
@@ -308,6 +308,8 @@ gst_gl_filterblur_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
   GstGLBuffer *outbuf = GST_GL_BUFFER (bt_outbuf);
   GstGLDisplay *display = inbuf->display;
 
+  /* hard coded kernel, it could be easily generated at runtime with a
+   * property to change standard deviation */
   gfloat gauss_kernel[9] = { 
     0.026995, 0.064759, 0.120985,
     0.176033, 0.199471, 0.176033,
@@ -336,7 +338,15 @@ gst_gl_filterblur_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
     filterblur->shader0 = gst_gl_shader_new ();
   if (!filterblur->shader1) 
     filterblur->shader1 = gst_gl_shader_new ();
-  
+
+  /* here is the key thing about multi-step rendering: 
+     1. set_target: binds a texture to the fbo, all rendering
+     operations would output in that texture
+     2. compile and use shader
+     3. draw the texture (modified by the shader)
+  */
+
+  /* target: midtexture, input: intexture */
   gst_gl_filterblur_set_target (filterblur, filterblur->midtexture);
 
   /* temp assert just for debug */
@@ -359,6 +369,8 @@ gst_gl_filterblur_transform (GstBaseTransform * bt, GstBuffer * bt_inbuf,
 
   gst_gl_filterblur_draw_texture (filterblur, filterblur->intexture);
 
+  /* note: the last attached texture has to be outtexture */
+  /* target: outtexture, input: midtexture */
   gst_gl_filterblur_set_target (filterblur, filterblur->outtexture);
 
   /* temp assert just for debug */

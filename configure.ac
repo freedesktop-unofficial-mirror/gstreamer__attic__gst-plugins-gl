@@ -205,7 +205,7 @@ AM_CONDITIONAL(HAVE_GTK, test "x$HAVE_GTK" = "xyes")
 
 dnl optional gdk-pixbuf (for pixbufoverlay)
 HAVE_GDKPIXBUF=NO
-PKG_CHECK_MODULES(GDKPIXBUF, gdk-pixbuf-2.0, HAVE_GDKPIXBUF=yes, HAVE_GDKPIXBUF=no)
+#PKG_CHECK_MODULES(GDKPIXBUF, gdk-pixbuf-2.0, HAVE_GDKPIXBUF=yes, HAVE_GDKPIXBUF=no)
 AC_SUBST(GDKPIXBUF_LIBS)
 AC_SUBST(GDKPIXBUF_CFLAGS)
 AC_SUBST(HAVE_GDKPIXBUF)
@@ -292,6 +292,14 @@ dnl Eventually use pkgconfig check
 #    AC_MSG_RESULT(no)
 #  ])
 #])
+
+PKG_CHECK_MODULES(LIBPNG, libpng12 >= 1.0, HAVE_LIBPNG=yes, HAVE_LIBPNG=no)
+if test "x${HAVE_LIBPNG}" != xyes ; then
+  AC_ERROR([libpng12 is required])
+fi
+AC_SUBST(LIBPNG_LIBS)
+AC_SUBST(LIBPNG_CFLAGS)
+
 
 dnl *** set variables based on configure arguments ***
 

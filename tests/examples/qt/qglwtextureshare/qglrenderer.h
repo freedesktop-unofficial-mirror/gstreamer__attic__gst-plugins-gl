@@ -23,7 +23,8 @@
 #define QGLRENDERER_H
 
 #include <QGLWidget>
-#include "GstGLBufferDef.h"
+
+#include <gst/gl/gstglcontext.h>
 
 
 class GstThread;
@@ -53,7 +54,7 @@ private:
     QString videoLoc;
     GstThread *gst_thread;
     bool closing;
-    GstGLBuffer *frame;
+    GstBuffer *frame;
 };
 
 #endif // QGLRENDERER_H

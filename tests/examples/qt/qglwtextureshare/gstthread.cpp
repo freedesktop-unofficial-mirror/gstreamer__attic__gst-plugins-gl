@@ -23,15 +23,15 @@
 #include "gstthread.h"
 
 
-GstThread::GstThread(const GLContextID &ctxId,
+GstThread::GstThread(GstGLContext *context,
         const QString &videoLocation,
         const char *renderer_slot,
         QObject *parent):
     QThread(parent),
-    contextId(ctxId),
     m_videoLocation(videoLocation)
 {
-    m_pipeline = new Pipeline(this->contextId, m_videoLocation, this);
+    this->context = context;
+    m_pipeline = new Pipeline(this->context, m_videoLocation, this);
     QObject::connect(m_pipeline, SIGNAL(newFrameReady()), this->parent(), renderer_slot, Qt::QueuedConnection);
 }
 

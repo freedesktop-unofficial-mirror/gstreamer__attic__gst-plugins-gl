@@ -22,16 +22,16 @@
 #include "pipeline.h"
 
 
-Pipeline::Pipeline(const GLContextID &ctx,
+Pipeline::Pipeline(GstGLContext *context,
                    const QString &videoLocation,
                    QObject *parent)
   : QObject(parent),
-    glctx(ctx),
     m_videoLocation(videoLocation),
     m_loop(NULL),
     m_bus(NULL),
     m_pipeline(NULL)
 {
+    this->context = context;
     this->configure();
 }
 
@@ -56,18 +56,18 @@ Pipeline::configure()
                       ("videotestsrc ! "
                        "video/x-raw, width=640, height=480, "
                        "framerate=(fraction)30/1 ! "
-                       "glupload ! gleffects effect=5 ! fakesink sync=1",
+                       "gleffects effect=5 ! fakesink sync=1",
                        NULL));
     }
     else
     {
-        qDebug("Loading video: %s", m_videoLocation.toAscii().data());
-        m_pipeline =
-            GST_PIPELINE (gst_parse_launch
-                      (QString("filesrc location=%1 ! decodebin2 ! "
-                               "glupload ! gleffects effect=5 ! "
-                               "fakesink sync=1").arg(m_videoLocation).toAscii(),
-                       NULL));
+        QByteArray ba = m_videoLocation.toLocal8Bit();
+        qDebug("Loading video: %s", ba.data());
+        gchar *pipeline = g_strdup_printf ("filesrc location='%s' ! "
+                               "decodebin ! gleffects effect=5 ! "
+                               "fakesink sync=1", ba.data());
+        m_pipeline = GST_PIPELINE (gst_parse_launch (pipeline, NULL));
+        g_free (pipeline);
     }
 
     m_bus = gst_pipeline_get_bus(GST_PIPELINE(m_pipeline));
@@ -81,8 +81,8 @@ Pipeline::configure()
         qDebug ("gl element could not be found");
         return;
     }
-    g_object_set(G_OBJECT (gl_element), "external-opengl-context",
-               this->glctx.contextId, NULL);
+    g_object_set(G_OBJECT (gl_element), "other-context",
+               this->context, NULL);
     gst_object_unref(gl_element);
 
     gst_element_set_state(GST_ELEMENT(this->m_pipeline), GST_STATE_PAUSED);
@@ -142,7 +142,7 @@ Pipeline::on_gst_buffer(GstElement * element,
 
     /* ref then push buffer to use it in qt */
     gst_buffer_ref(buf);
-    p->queue_input_buf.put((GstGLBuffer*)buf);
+    p->queue_input_buf.put(buf);
 
     if (p->queue_input_buf.size() > 3)
         p->notifyNewFrame();
@@ -150,7 +150,7 @@ Pipeline::on_gst_buffer(GstElement * element,
     /* pop then unref buffer we have finished to use in qt */
     if (p->queue_output_buf.size() > 3)
     {
-        GstBuffer *buf_old = (GstBuffer*)(p->queue_output_buf.get());
+        GstBuffer *buf_old = (p->queue_output_buf.get());
         if (buf_old)
             gst_buffer_unref(buf_old);
     }

@@ -22,7 +22,10 @@
 #ifndef GSTTHREAD_H
 #define GSTTHREAD_H
 
-#include <QtCore/QThread>
+#include <QThread>
+
+#include <gst/gl/gstglcontext.h>
+
 #include "glcontextid.h"
 
 class Pipeline;
@@ -32,7 +35,7 @@ class GstThread : public QThread
     Q_OBJECT
 
 public:
-    GstThread(const GLContextID &ctxId,
+    GstThread(GstGLContext *context,
             const QString &videoLocation,
             const char *renderer_slot,
             QObject *parent = 0);
@@ -48,7 +51,7 @@ protected:
     void run();
 
 private:
-    const GLContextID contextId;
+    GstGLContext *context;
     const QString m_videoLocation;
     Pipeline* m_pipeline;
 };

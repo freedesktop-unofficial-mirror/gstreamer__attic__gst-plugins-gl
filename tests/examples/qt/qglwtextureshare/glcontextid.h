@@ -23,33 +23,36 @@
 #ifndef __GLCONTEXTID_H
 #define __GLCONTEXTID_H
 
-#if defined(Q_OS_WIN32)
+#include <gst/gl/gstglconfig.h>
+
+#if defined(GST_GL_HAVE_PLATFORM_WGL)
     #define WIN32_LEAN_AND_MEAN
     #include <windows.h>
     #include <Wingdi.h>
     #include <GL/gl.h>
-#elif defined (Q_OS_MAC)
+#elif defined (GST_GL_HAVE_PLATFORM_COCOA)
     #include <OpenGL/OpenGL.h>
     class NSOpenGLContext;
 #else
     #include <X11/Xlib.h>
     #include <GL/gl.h>
+    #include <GL/glu.h>
     #include <GL/glx.h>
 #endif
 
 
-#if defined(Q_WS_WIN)
+#if defined(GST_GL_HAVE_PLATFORM_WGL)
     typedef struct _tagGLContextID
     {
         HGLRC contextId;
         HDC dc;
     } GLContextID;
-#elif  defined(Q_WS_MAC)
+#elif  defined(GST_GL_HAVE_PLATFORM_COCOA)
     typedef struct _tagGLContextID
     {
         NSOpenGLContext* contextId;
     } GLContextID;
-#elif defined(Q_WS_X11)
+#elif defined(GST_GL_HAVE_PLATFORM_GLX)
     typedef struct _tagGLContextID
     {
         GLXContext contextId;

@@ -20,7 +20,13 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <QtGui>
+#include <QGLWidget>
+#include <QApplication>
+#include <QCloseEvent>
+
+#include <gst/video/video.h>
+#include <gst/gl/gstglmemory.h>
+
 #include "gstthread.h"
 #include "qglrenderer.h"
 #include "pipeline.h"
@@ -48,30 +54,26 @@ QGLRenderer::~QGLRenderer()
 void
 QGLRenderer::initializeGL()
 {
-    GLContextID ctx;
+    GstGLContext *context;
+    GstGLDisplay *display;
 
-#if defined(Q_WS_WIN)
-    ctx.contextId = wglGetCurrentContext();
-    ctx.dc = wglGetCurrentDC();
-#elif defined (Q_WS_MAC)
-    ctx.contextId = (NSOpenGLContext*) qt_current_nsopengl_context();
-#elif defined(Q_WS_X11)
-    ctx.contextId = glXGetCurrentContext();
-    const char *display_name = getenv("DISPLAY");
-    if(display_name == NULL)
-    {
-        // actually we should look for --display command line parameter here
-        display_name = ":0.0";
-    }
-    ctx.display = XOpenDisplay(display_name);
-    ctx.wnd = this->winId();
+    display = gst_gl_display_new ();
+
+    /* FIXME: Allow the choice at runtime */
+#if defined(GST_GL_HAVE_PLATFORM_WGL)
+    context = gst_gl_context_new_wrapped (display, (guintptr) wglGetCurrentContext (), GST_GL_PLATFORM_WGL, GST_GL_API_OPENGL);
+#elif defined (GST_GL_HAVE_PLATFORM_COCOA)
+    context = gst_gl_context_new_wrapped (display, (guintptr) qt_current_nsopengl_context(), GST_GL_PLATFORM_COCOA, GST_GL_API_OPENGL);
+#elif defined(GST_GL_HAVE_PLATFORM_GLX)
+    context = gst_gl_context_new_wrapped (display, (guintptr) glXGetCurrentContext (), GST_GL_PLATFORM_GLX, GST_GL_API_OPENGL);
 #endif
+    gst_object_unref (display);
 
     // We need to unset Qt context before initializing gst-gl plugin.
     // Otherwise the attempt to share gst-gl context with Qt will fail.
     this->doneCurrent();
     this->gst_thread = 
-      new GstThread(ctx, this->videoLoc, SLOT(newFrame()), this);
+      new GstThread(context, this->videoLoc, SLOT(newFrame()), this);
     this->makeCurrent();
 
     QObject::connect(this->gst_thread, SIGNAL(finished()),
@@ -128,14 +130,29 @@ QGLRenderer::paintGL()
 
     if (this->frame)
     {
+        guint tex_id;
+        GstMemory *mem;
+        GstVideoInfo v_info;
+        GstVideoFrame v_frame;
+        GstVideoMeta *v_meta;
 
-        GLfloat width = this->frame->width;
-        GLfloat height = this->frame->height;
+        mem = gst_buffer_peek_memory (this->frame, 0);
+        v_meta = gst_buffer_get_video_meta (this->frame);
+
+        if (gst_is_gl_memory (mem)) {
+            gst_video_info_set_format (&v_info, v_meta->format, v_meta->width,
+                v_meta->height);
+
+            gst_video_frame_map (&v_frame, &v_info, this->frame,
+                (GstMapFlags) (GST_MAP_READ | GST_MAP_GL));
+
+            tex_id = *(guint *) v_frame.data[0];
+        }
 
         glEnable(GL_DEPTH_TEST);
 
         glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, this->frame->texture);
+        glBindTexture(GL_TEXTURE_2D, tex_id);
         if(glGetError () != GL_NO_ERROR)
         {
           qDebug ("failed to bind texture that comes from gst-gl");
@@ -163,35 +180,35 @@ QGLRenderer::paintGL()
 
         glBegin(GL_QUADS);
             // Front Face
-            glTexCoord2f(width, 0.0f); glVertex3f(-1.0f, -1.0f,  1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f,  1.0f);
             glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f, -1.0f,  1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f( 1.0f,  1.0f,  1.0f);
-            glTexCoord2f(width, height); glVertex3f(-1.0f,  1.0f,  1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f,  1.0f,  1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f,  1.0f,  1.0f);
             // Back Face
             glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f(-1.0f,  1.0f, -1.0f);
-            glTexCoord2f(width, height); glVertex3f( 1.0f,  1.0f, -1.0f);
-            glTexCoord2f(width, 0.0f); glVertex3f( 1.0f, -1.0f, -1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f,  1.0f, -1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f,  1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f, -1.0f, -1.0f);
             // Top Face
-            glTexCoord2f(width, height); glVertex3f(-1.0f,  1.0f, -1.0f);
-            glTexCoord2f(width, 0.0f); glVertex3f(-1.0f,  1.0f,  1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f,  1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f,  1.0f,  1.0f);
             glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f,  1.0f,  1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f( 1.0f,  1.0f, -1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f,  1.0f, -1.0f);
             // Bottom Face
-            glTexCoord2f(width, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);
             glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f, -1.0f, -1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f( 1.0f, -1.0f,  1.0f);
-            glTexCoord2f(width,height); glVertex3f(-1.0f, -1.0f,  1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f, -1.0f,  1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f, -1.0f,  1.0f);
             // Right face
             glTexCoord2f(0.0f, 0.0f); glVertex3f( 1.0f, -1.0f, -1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f( 1.0f,  1.0f, -1.0f);
-            glTexCoord2f(width, height); glVertex3f( 1.0f,  1.0f,  1.0f);
-            glTexCoord2f(width, 0.0f); glVertex3f( 1.0f, -1.0f,  1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f( 1.0f,  1.0f, -1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f,  1.0f,  1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f, -1.0f,  1.0f);
             // Left Face
-            glTexCoord2f(width, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);
+            glTexCoord2f(1.0f, 0.0f); glVertex3f(-1.0f, -1.0f, -1.0f);
             glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f,  1.0f);
-            glTexCoord2f(0.0f, height); glVertex3f(-1.0f,  1.0f,  1.0f);
-            glTexCoord2f(width, height); glVertex3f(-1.0f,  1.0f, -1.0f);
+            glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f,  1.0f,  1.0f);
+            glTexCoord2f(1.0f, 1.0f); glVertex3f(-1.0f,  1.0f, -1.0f);
         glEnd();
 
         xrot+=0.3f;

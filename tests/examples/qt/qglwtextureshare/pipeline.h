@@ -22,10 +22,12 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
-#include <QtGui>
+#include <QObject>
+
+#include <gst/gl/gstglcontext.h>
+
 #include "glcontextid.h"
 #include "AsyncQueue.h"
-#include "GstGLBufferDef.h"
 
 
 class Pipeline : public QObject
@@ -33,7 +35,7 @@ class Pipeline : public QObject
     Q_OBJECT
 
 public:
-    Pipeline(const GLContextID &ctx,
+    Pipeline(GstGLContext *context,
         const QString &videoLocation,
         QObject *parent);
     ~Pipeline();
@@ -44,15 +46,15 @@ public:
     void stop();
     void unconfigure();
 
-    AsyncQueue<GstGLBuffer*> queue_input_buf;
-    AsyncQueue<GstGLBuffer*> queue_output_buf;
+    AsyncQueue<GstBuffer*> queue_input_buf;
+    AsyncQueue<GstBuffer*> queue_output_buf;
 
 Q_SIGNALS:
     void newFrameReady();
     void stopRequested();
 
 private:
-    const GLContextID glctx;
+    GstGLContext *context;
     const QString m_videoLocation;
     GMainLoop* m_loop;
     GstBus* m_bus;

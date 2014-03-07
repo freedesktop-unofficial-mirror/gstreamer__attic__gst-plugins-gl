@@ -3,7 +3,8 @@ TARGET = videooverlay
 DESTDIR = ./Debug
 CONFIG += debug
 DEFINES += UNICODE QT_THREAD_SUPPORT QT_CORE_LIB QT_GUI_LIB
-	
+QT += gui widgets
+
 win32 {
 DEFINES += WIN32
 INCLUDEPATH += ./GeneratedFiles \
@@ -39,8 +40,7 @@ LIBS += -lgstreamer-1.0 \
 	-lgobject-2.0 \
 	-lgthread-2.0 \
 	-lGLU \
-	-lGL \
-	-lGLEW
+	-lGL
 }
 
 DEPENDPATH += .

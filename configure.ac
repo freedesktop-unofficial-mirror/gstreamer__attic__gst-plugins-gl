@@ -9,6 +9,17 @@ AC_INIT(GStreamer OpenGL Plug-ins, 0.11.0.1,
     http://bugzilla.gnome.org/enter_bug.cgi?product=GStreamer,
     gst-plugins-gl)
 
+AC_MSG_ERROR([
+===========================================================================
+
+ The GStreamer OpenGL module library and plugin have been merged into
+ gst-plugins-bad version 1.4 and later.
+
+ This git module is therefore obsolete now and should no longer be used.
+
+===========================================================================
+])
+
 AG_GST_INIT
 
 dnl initialize automake
